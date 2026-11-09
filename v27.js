@@ -42,17 +42,31 @@ if(typeof document!=='undefined'){
   const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const link=(u,title)=>u?'<a target="_blank" rel="noopener noreferrer" href="'+esc(u)+'">'+esc(title)+'</a>':'未知';
   const table=(heads,rows)=>'<table><thead><tr>'+heads.map(h=>'<th scope="col">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
-  let report=null;
-  function run(){report=null;$('export').disabled=true;for(const id of ['stats','years','gaps','latest','issues'])$(id).textContent='暂无结果';$('gapStatus').textContent='未知';try{
+  let report=null,lastSuccess=null,running=false;
+  const finishedAt=()=>new Date().toLocaleString('zh-CN',{hour12:false})+'（本机时间）';
+  function resultSummary(r){return {总记录:r.total,格式通过:r.format,...Object.fromEntries('ABCD'.split('').map(g=>[g,r.rows.filter(x=>x.grade===g).length])),仅有休市证据:r.holiday,待核:r.pending,异常:r.abnormal,长间隔:r.gaps.length}}
+  async function run(){
+    if(running)return;
+    running=true;report=null;$('refresh').disabled=true;$('refresh').textContent='正在读取并核验…';$('status').setAttribute('aria-busy','true');$('status').textContent='运行中：正在重新读取本地历史缓存并逐条执行核验…';$('runDetails').textContent='尚未完成；本次结果暂不可导出。';
+    // Yield so the running state is painted before the synchronous local analysis.
+    $('export').disabled=true;
+    await new Promise(resolve=>setTimeout(resolve,30));
+    for(const id of ['stats','years','gaps','latest','issues'])$(id).textContent='暂无结果';$('gapStatus').textContent='未知';try{
     const raw=localStorage.getItem('lottery_v2_dlt');if(raw===null)throw Error('未找到本地历史缓存。请在原网站域名、原浏览器打开；本页不会自动下载或补造数据');
-    report=V27.analyze(JSON.parse(raw));const r=report;
-    $('status').textContent='已读取本地快照：'+r.total+' 期。'+(r.total===2945?'数量与既有2945期一致；数量一致不证明完整真实。':'与既有2945期数量不符，请核查；未补录或覆盖。');
+    let data;try{data=JSON.parse(raw)}catch(e){throw Error('历史缓存 JSON 解析失败：'+e.message)}
+    const r=V27.analyze(data),snapshot=JSON.stringify(data),summary=resultSummary(r),resultSnapshot=JSON.stringify(r);
+    const unchanged=lastSuccess&&snapshot===lastSuccess.snapshot;
+    $('status').textContent=unchanged?'核验完成，本次数据无变化':lastSuccess?'核验完成，本次数据有变化':'核验完成，首次读取，已建立本页对比基线';
+    const changes=lastSuccess?Object.keys(summary).filter(k=>summary[k]!==lastSuccess.summary[k]).map(k=>k+' '+lastSuccess.summary[k]+' → '+summary[k]):[];
+    $('runDetails').textContent='完成时间：'+finishedAt()+'；本次核验记录数量：'+r.total+' 条。'+(lastSuccess?(changes.length?'结果变化：'+changes.join('；')+'。':resultSnapshot!==lastSuccess.resultSnapshot?'核验明细有变化，汇总数量无变化。':'核验结果无变化。'):'首次运行，无上次成功结果可对比。')+(r.total===2945?'记录数量与既有2945期一致；数量一致不证明完整真实。':'记录数量与既有2945期不符，请核查；未补录或覆盖。');
+
     $('stats').innerHTML=[['总记录数',r.total],['格式通过数',r.format],['逐期官方公告核验数 A',r.A],['仅有休市证据数（记录）',r.holiday],['待核数（非 A）',r.pending],['异常数',r.abnormal]].map(([k,v])=>'<div class="stat">'+k+'<b>'+v+'</b></div>').join('');
     $('years').innerHTML=table(['年度','总期数','A','B','C','D','官方覆盖率'],r.years.map(y=>[y.year,y.total,y.A,y.B,y.C,y.D,y.total?(100*y.A/y.total).toFixed(2)+'%':'未知']))+'<p>无法归年：'+r.unknownYear+' 条。</p>';
     $('gapStatus').textContent='实际发现 '+r.gaps.length+' 处超过10天的同年度相邻期号间隔。'+(r.gaps.length===7?'与V24报告的7处数量一致。':'与既有7处数量不符，按实际展示，不补造清单。')+'公告仅复用V25、V26来源，日期重叠不等于原文核验通过。';
     $('gaps').innerHTML=r.gaps.length?table(['年份 / 期号','相邻日期','间隔天数','公告来源 / 状态'],r.gaps.map(g=>[g.year+'<br>'+esc(g.period),esc(g.dates),g.days,link(g.e?.url,g.e?.title)+'<br>'+esc(g.status)])):'本地快照未识别到长间隔；既有7处的具体记录当前未知。';
     $('latest').innerHTML=table(['期号 / 日期','号码','等级 / 核验详情','原公告'],r.rows.filter(x=>Number.isFinite(x.t)).sort((a,b)=>b.t-a.t||b.period.localeCompare(a.period)).slice(0,5).map(x=>[esc(x.period)+'<br>'+esc(x.date),esc(x.nums),x.grade+'<br>'+esc(x.source)+'<br>'+esc([...x.issues,...x.pending].join('；')|| (x.grade==='A'?'既有公告样本一致':'待逐期官方核验')),link(x.url,'原公告线索（未在线复核）')]));
-    const issues=r.rows.filter(x=>x.issues.length||x.pending.length);$('issues').innerHTML=issues.length?table(['行号 / 期号','问题'],issues.slice(0,100).map(x=>[x.index+' / '+esc(x.period),esc([...x.issues,...x.pending].join('；'))]))+'<p>共 '+issues.length+' 条，页面最多显示100条，CSV包含全部。</p>':'未发现已定义的异常线索；不等于全量官方认证。';$('export').disabled=false;
-  }catch(e){$('status').textContent='无法分析：'+e.message}}
+    const issues=r.rows.filter(x=>x.issues.length||x.pending.length);$('issues').innerHTML=issues.length?table(['行号 / 期号','问题'],issues.slice(0,100).map(x=>[x.index+' / '+esc(x.period),esc([...x.issues,...x.pending].join('；'))]))+'<p>共 '+issues.length+' 条，页面最多显示100条，CSV包含全部。</p>':'未发现已定义的异常线索；不等于全量官方认证。';report=r;lastSuccess={snapshot,summary,resultSnapshot};$('export').disabled=false;
+  }catch(e){report=null;$('export').disabled=true;$('status').textContent='核验失败：'+e.message;$('runDetails').textContent='结束时间：'+finishedAt()+'；本次成功核验记录数量：0 条（核验未完成）。上次成功对比基线保留，未修改原始缓存。';}
+  finally{running=false;$('refresh').disabled=false;$('refresh').textContent='重新读取并核验';$('status').setAttribute('aria-busy','false')}}
   $('refresh').onclick=run;$('export').onclick=()=>{if(!report)return;const url=URL.createObjectURL(new Blob([V27.csv(report)],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='V27-历史数据证据核验报告.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)};run();
 }
