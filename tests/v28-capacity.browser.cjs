@@ -1,0 +1,18 @@
+'use strict';
+// All URLs/responses in this capacity test are isolated mocks, never official evidence.
+const {chromium}=require('playwright'),fs=require('node:fs'),assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});try{
+ const page=await browser.newPage({acceptDownloads:true});await page.goto('http://127.0.0.1:8000/v28.html');
+ const data=JSON.parse(fs.readFileSync('/tmp/v27-third-party.json','utf8')).map(x=>({period:String(x.issue),date:x.date,nums:[...x.front,...x.back].map(Number)}));assert.equal(data.length,2945);
+ const historical=JSON.stringify(data),sentinel='[{"v17":"unchanged"}]';await page.evaluate(({historical,sentinel})=>{localStorage.setItem('lottery_v2_dlt',historical);localStorage.setItem('lottery_v17_forward_records_1',sentinel)},{historical,sentinel});
+ await page.addInitScript(()=>{const writer=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k!=='lottery_v28_verification_1')throw Error('Protected '+k);return writer.call(this,k,v)};Storage.prototype.removeItem=Storage.prototype.clear=()=>{throw Error('Protected delete')}});await page.reload();
+ const url='https://capacity.example/'+('source-'.repeat(15))+'data.json',reference='https://reference.example/'+('notice-'.repeat(15))+'draw';
+ await page.route(url,route=>route.fulfill({contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(data.map(r=>({...r,url:reference,kind:'third-party'})))}));
+ await page.locator('#source').fill(url);await page.locator('#fetch').click();await page.waitForFunction(()=>!document.getElementById('fetch').disabled);assert.match(await page.locator('#importStatus').innerText(),/新增 2945 条/);await page.locator('#batch').selectOption('100');await page.locator('#start').click();await page.waitForFunction(()=>document.getElementById('stop').disabled,{},{timeout:60000});assert.match(await page.locator('#status').innerText(),/核验完成/);
+ let checked=await page.evaluate(()=>{const raw=localStorage.getItem('lottery_v28_verification_1'),s=V28Core.unpackState(JSON.parse(raw));return {cursor:s.cursor,count:Object.keys(s.results).length,A:Object.values(s.results).filter(r=>r.grade==='A').length,allFields:Object.values(s.results).every(r=>r.details[0].fields.length===9&&r.details[0].fields.every(f=>f.result==='一致')),last:s.results[s.queue.at(-1).period].details[0],chars:raw.length}});
+ assert.equal(checked.cursor,2945);assert.equal(checked.count,2945);assert.equal(checked.A,0);assert(checked.allFields);assert.equal(checked.last.sourceUrl,url);assert(checked.last.readAt);assert(checked.chars<5000000);
+ await page.reload();await page.waitForFunction(()=>!document.getElementById('start').disabled);assert.match(await page.locator('#stats').innerText(),/已核验 2945/);assert.match(await page.locator('#stats').innerText(),/A 0/);
+ const pending=page.waitForEvent('download');await page.locator('#export').click();await (await pending).saveAs('/tmp/v28-full-trace.csv');assert.equal(fs.readFileSync('/tmp/v28-full-trace.csv','utf8').split('\r\n').length,2946);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('lottery_v2_dlt')),historical);assert.equal(await page.evaluate(()=>localStorage.getItem('lottery_v17_forward_records_1')),sentinel);
+ console.log('Full 2945 HTTPS traces passed: complete save/reload, 9 fields per record, A=0 for third-party, 2945 CSV detail rows, protected originals; stored chars:',checked.chars);
+}finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});
