@@ -36,7 +36,7 @@ out.innerHTML=html;status.textContent='验证完成：'+d.length+'期记录通�
 
 $('v8run').onclick=async()=>{const btn=$('v8run'),status=$('v8status'),out=$('v8out'),g=game(),d=records[g];btn.disabled=true;out.innerHTML='';try{
 if(d.length<250)throw Error('至少需要250期历史数据');
-let seen=new Set();for(let i=0;i<d.length;i++){let r=d[i];if(seen.has(r.period)||!valid(g,r.nums)||!/^(\\d{4})-(\\d{2})-(\\d{2})$/.test(r.date)||!Number.isFinite(Date.parse(r.date))||(i&&d[i-1].date>r.date))throw Error('第'+(i+1)+'条数据存在重复、日期或号码异常');seen.add(r.period)}
+let seen=new Set();for(let i=0;i<d.length;i++){let r=d[i];if(seen.has(r.period)||!valid(g,r.nums)||!/^\d{4}-\d{2}-\d{2}$/.test(r.date)||!Number.isFinite(Date.parse(r.date))||(i&&d[i-1].date>r.date))throw Error('第'+(i+1)+'条数据存在重复、日期或号码异常');seen.add(r.period)}
 const w=100,n=d.length-w,dist=Array(g==='dlt'?6:4).fill(0),theory=Array(dist.length).fill(0);let observed=0;
 for(let i=w;i<d.length;i++){const p=hot(g,d.slice(i-w,i)),a=d[i].nums;const k=g==='dlt'?p.slice(0,5).filter(v=>a.slice(0,5).includes(v)).length:p.filter((v,j)=>v===a[j]).length;dist[k]++;observed+=k}
 function choose(n,k){if(k<0||k>n)return 0;let a=1;for(let j=1;j<=k;j++)a=a*(n-j+1)/j;return a}
