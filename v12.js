@@ -1,0 +1,15 @@
+(()=>{'use strict';const $=id=>document.getElementById(id),b=$('v12run'),o=$('v12out');if(!b||!o)return;
+const refs=[{period:'26103',date:'2026-09-09',nums:[3,16,17,32,35,2,12],url:'https://gdlottery.cn/f_html/kjgg/P085_26103.html'},{period:'26101',date:'2026-09-05',nums:[9,11,18,26,33,9,11],url:'https://gdlottery.cn/f_html/kjgg/P085_26101.html'},{period:'26035',date:'2026-04-04',nums:[2,22,30,33,34,8,12],url:'https://www.gdlottery.cn/f_html/kjgg_pdf_bak/P085_26035.pdf'},{period:'25101',date:'2025-09-03',nums:[5,7,19,26,32,8,9],url:'https://www.gdlottery.cn/f_html/kjgg_pdf_bak/P085_25101.pdf'}];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),norm=p=>String(p??'').trim().replace(/^0+/,'')||'0';
+b.addEventListener('click',()=>{b.disabled=true;o.textContent='正在统计本地数据核验覆盖率……';setTimeout(()=>{try{
+if($('game').value!=='dlt')throw Error('当前官方样本只覆盖超级大乐透；福彩3D尚无官方公告样本。');
+const data=JSON.parse(localStorage.getItem('lottery_v2_dlt')||'[]');if(!Array.isArray(data)||!data.length)throw Error('请先加载大乐透历史数据。');
+const map=new Map(),duplicates=new Set();for(const r of data){const key=norm(r?.period);if(map.has(key))duplicates.add(key);else map.set(key,r)}
+let pass=0,fail=0,missing=0;const statuses=refs.map(ref=>{const key=norm(ref.period),r=map.get(key);let state='本地缺失';if(r){const nums=Array.isArray(r.nums)?r.nums.map(Number):[];state=duplicates.has(key)?'重复期号，待核':r.date===ref.date&&nums.length===7&&nums.every((n,i)=>n===ref.nums[i])?'样本一致':'样本不一致';}if(state==='样本一致')pass++;else if(state==='本地缺失')missing++;else fail++;return {ref,state}});
+const pct=(pass/data.length*100).toFixed(3);const unverified=data.length-pass;
+const year={};for(const r of data){const y=String(r?.date||'').slice(0,4);if(/^\d{4}$/.test(y)){if(!year[y])year[y]={total:0,verified:0};year[y].total++}}
+for(const {ref,state} of statuses){if(state==='样本一致'&&year[ref.date.slice(0,4)])year[ref.date.slice(0,4)].verified++}
+const lines=Object.keys(year).sort().map(y=>'<tr><td>'+esc(y)+'</td><td>'+year[y].total+'</td><td>'+year[y].verified+'</td><td>'+((year[y].verified/year[y].total)*100).toFixed(2)+'%</td></tr>').join('');
+o.innerHTML='<p><b>V12 · 核验覆盖率报告</b></p><p>本地记录 '+data.length+' 期；样本一致 '+pass+' 期；样本不一致或重复 '+fail+' 期；样本缺失 '+missing+' 期。</p><p><b>已通过公告样本对照：'+pct+'%</b>；其余 '+unverified+' 期尚未通过本工具的公告对照（不等于已判定错误）。</p><div class="scroll"><table><tr><th>年份</th><th>本地期数</th><th>样本一致</th><th>覆盖率</th></tr>'+lines+'</table></div><h3>官方样本明细</h3><div class="scroll"><table><tr><th>期号</th><th>状态</th><th>来源</th></tr>'+statuses.map(({ref,state})=>'<tr><td>'+esc(ref.period)+'</td><td>'+esc(state)+'</td><td><a style="color:#8bc4ff" href="'+ref.url+'" target="_blank" rel="noopener noreferrer">查看公告</a></td></tr>').join('')+'</table></div><p><small>覆盖率分母是本机已加载记录数，不是官方全部应开奖期数。此报告不联网、不自动扩展样本，只有预置4期公告摘录可比对；未对公告原文进行实时校验，也不证明本地历史记录完整或有预测价值。若需扩大核验，必须逐期增加可追溯的官方来源并复核内容。</small></p>';
+}catch(e){o.textContent='V12未完成：'+e.message}finally{b.disabled=false}},30)});
+})();
