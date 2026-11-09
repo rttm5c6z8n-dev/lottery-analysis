@@ -1,0 +1,12 @@
+(()=>{'use strict';const $=id=>document.getElementById(id),btn=$('v11run'),out=$('v11out');if(!btn||!out)return;
+const refs=[{period:'26103',date:'2026-09-09',nums:[3,16,17,32,35,2,12],url:'https://gdlottery.cn/f_html/kjgg/P085_26103.html'},{period:'26101',date:'2026-09-05',nums:[9,11,18,26,33,9,11],url:'https://gdlottery.cn/f_html/kjgg/P085_26101.html'},{period:'26035',date:'2026-04-04',nums:[2,22,30,33,34,8,12],url:'https://www.gdlottery.cn/f_html/kjgg_pdf_bak/P085_26035.pdf'},{period:'25101',date:'2025-09-03',nums:[5,7,19,26,32,8,9],url:'https://www.gdlottery.cn/f_html/kjgg_pdf_bak/P085_25101.pdf'}];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=p=>String(p).trim().replace(/^0+/,'')||'0';
+btn.addEventListener('click',()=>{btn.disabled=true;out.textContent='正在对比已收录的官方公告样本……';setTimeout(()=>{try{const game=$('game').value;if(game!=='dlt')throw Error('目前只收录大乐透官方公告样本，福彩3D暂不支持。');
+const data=JSON.parse(localStorage.getItem('lottery_v2_dlt')||'[]');if(!Array.isArray(data)||!data.length)throw Error('没有找到本机大乐透数据，请先加载历史记录。');
+const map=new Map(data.map(r=>[norm(r.period),r]));let pass=0,fail=0,missing=0;
+const rows=refs.map(ref=>{const local=map.get(norm(ref.period));let result,detail;if(!local){missing++;result='本地缺失';detail='未找到此期';}else{const sameDate=local.date===ref.date;const a=Array.isArray(local.nums)?local.nums.map(Number):[];const sameNums=a.length===7&&a.every((x,i)=>x===ref.nums[i]);if(sameDate&&sameNums){pass++;result='一致';detail='日期与号码一致';}else{fail++;result='不一致';detail=(!sameDate?'日期：'+local.date+' / '+ref.date+'；':'')+(!sameNums?'号码：'+a.join(' ')+' / '+ref.nums.join(' '):'');}}
+return '<tr><td>'+esc(ref.period)+'</td><td>'+esc(result)+'</td><td>'+esc(detail)+'</td><td><a style="color:#8bc4ff" href="'+ref.url+'" target="_blank" rel="noopener noreferrer">公告</a></td></tr>';});
+out.innerHTML='<p><b>V11官方公告样本交叉核验</b></p><p>已比对 '+refs.length+' 期：一致 '+pass+'；不一致 '+fail+'；本地缺失 '+missing+'。</p><div class="scroll"><table><tr><th>期号</th><th>结果</th><th>说明</th><th>来源</th></tr>'+rows.join('')+'</table></div><p><small>本版仅核验预先人工摘录的4期广东体彩官方开奖公告，非实时联网抓取、非2945期全量核验。对比的是期号、日期、开奖号码，不核验销售金额或奖金。公告可能更新，必要时请打开原文复核。任何一致结果都不能推断其余记录已核实。</small></p>';
+}catch(e){out.textContent='V11未完成：'+e.message}finally{btn.disabled=false}},30)});
+})();
