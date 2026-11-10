@@ -1,0 +1,3 @@
+import {parseList} from '../lib/jiangsu.mjs';import fs from 'node:fs';import assert from 'node:assert/strict';
+for(const [name,page,count]of [['data',1,10],['page2',2,10],['last',295,2]]){const html=fs.readFileSync('/tmp/v29-js-'+name+'.html','utf8'),r=parseList(html,page,'2026-11-10T00:00:00.000Z');assert.equal(r.data.length,count);assert.equal(r.total,2942);assert(r.data.every(x=>x.nums.length===7&&x.url.startsWith('https://api.js-lottery.com/cms/post-')));assert.throws(()=>parseList(html,page+1,'x'))}
+assert.throws(()=>parseList('<html>captcha</html>',1,'x'));console.log('Real official HTML page 1/2/295: 22 records parsed; WAF and wrong page rejected.');
