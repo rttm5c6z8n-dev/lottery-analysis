@@ -50,11 +50,11 @@
       if(!snapshot)await read();
       if(snapshot.rows.length<120)throw Error('至少需要120条实际读取截止之前的完整、唯一且合法历史记录');
       const scope=Number($('studyScope').value);if(type==='replay'&&$('studyMode').value==='strict')throw Error('严格事前回测不可执行：当前快照缺少逐条历史发布时间、原始版本及对应可核实证据；不会退回历史重放冒充严格结果');
-      let job=!retrain?jobs.filter(j=>j.protocol===3&&j.tune===$('studyTune').checked&&j.type===type&&j.snapshotId===snapshot.id&&j.status!=='completed'&&(type==='train'||j.scope===scope)).at(-1):null;
+      let job=!retrain?jobs.filter(j=>j.protocol===4&&j.tune===$('studyTune').checked&&j.type===type&&j.snapshotId===snapshot.id&&j.status!=='completed'&&(type==='train'||j.scope===scope)).at(-1):null;
       if(!job){
         const targets=type==='replay'?P.plan(snapshot.rows,scope):null;
         if(type==='replay'&&!targets.length)throw Error('没有足够的下一期留出样本；至少121条且目标前有120条合格历史');
-        job={id:id(),protocol:3,tune:type==='replay'&&$('studyTune').checked,type,snapshotId:snapshot.id,hash:snapshot.hash,scope,createdAt:P.stamp(),savedAt:P.stamp(),cursor:0,total:targets?targets.length:snapshot.rows.length,status:'ready',targets,seed:20261110,totals:type==='replay'?P.initialTotals():null};
+        job={id:id(),protocol:4,tune:type==='replay'&&$('studyTune').checked,type,snapshotId:snapshot.id,hash:snapshot.hash,scope,createdAt:P.stamp(),savedAt:P.stamp(),cursor:0,total:targets?targets.length:snapshot.rows.length,status:'ready',targets,seed:20261110,totals:type==='replay'?P.initialTotals():null};
         await S.add('jobs',job);
       }
       await run(job);
@@ -78,7 +78,7 @@
     }} catch(e) {status(node,'已停止；最近成功保存 '+job.cursor+'/'+job.total+'；原因：'+e.message+'。可从任务列表断点续跑。');throw e}
   }
   function renderReport(r){
-    status('studyReportInfo',(r.availabilityStatus||'旧报告：可用性未证实')+'；'+r.mode+'；来源快照 '+r.snapshotId+'；完成时间 '+Research.bj(Date.parse(r.completedAt))+'；SHA256 '+r.hash+'；样本 '+r.folds+' 期；每策略每期5注；版本 '+r.version+'；'+r.prizeRule+'。'+r.availability);
+    status('studyReportInfo',(r.advantage||'未验证预测优势')+'；'+(r.availabilityStatus||'旧报告：可用性未证实')+'；'+r.mode+'；来源快照 '+r.snapshotId+'；完成时间 '+Research.bj(Date.parse(r.completedAt))+'；SHA256 '+r.hash+'；样本 '+r.folds+' 期；每策略每期5注；版本 '+r.version+'；'+r.prizeRule+'。'+r.availability);
     const f=n=>Number(n).toFixed(3),range=a=>a?a.map(f).join(' 至 '):'样本不足/不适用';
     $('studyReport').innerHTML=r.strategies.map(m=>'<article class="pick"><h3>'+esc(m.name)+'</h3><p>一等奖完整5＋2命中：'+m.firstPrizeHits+' 注 / '+m.winningDraws+' 期；共 '+m.draws+' 期、'+m.tickets+' 注。</p><p>命中期率95%区间：'+esc(m.firstPrizeDrawRate95?.map(n=>(n*100).toFixed(4)+'%').join(' 至 ')||'无样本')+'</p><p>二等奖5＋1命中：'+(m.secondPrizeHits??m.prizes[2])+' 注；命中期率95%区间 '+esc(m.secondPrizeDrawRate95?.map(n=>(n*100).toFixed(4)+'%').join(' 至 ')||'旧报告未保存该口径，不补造')+'</p><p>前区累计命中 '+m.front+'；后区累计命中 '+m.back+'</p><details><summary>辅助匹配档位及相对随机差异</summary><p>统一研究口径2—9档：'+esc(m.prizes.slice(2).map((n,i)=>(i+2)+'档 '+n).join('；'))+'</p><p>'+esc(['front','back'].map((k,i)=>(i?'后区':'前区')+'每期命中差 '+f(m.pairedDifferencePerDraw[k].mean)+'；近似95%区间 '+range(m.pairedDifferencePerDraw[k].approx95)).join('。'))+'</p><p>一等奖差值不使用稀疏样本正态近似区间；辅助指标不证明预测能力。</p></details></article>').join('');
     status('studyRandom','随机基准：每期100组、每组5注。累计命中均值及模拟95%范围：'+[['front','前区'],['back','后区'],['firstPrizeHits','一等奖'],['secondPrizeHits','二等奖']].filter(([k])=>r.random[k]).map(([k,n])=>n+' '+f(r.random[k].mean)+'（'+range(r.random[k].empirical95)+'）').join('；')+'。可用性：'+(r.availabilityStatus||'未证实')+'；权重：'+JSON.stringify(r.weights)+'；训练集研究：'+JSON.stringify(r.calibration||'旧报告无该字段')+'；过拟合：'+(r.overfitting||'旧报告未记录')+'。'+r.conclusion+'。'+r.uncertainty);
@@ -87,9 +87,11 @@
     for(const [k,n]of [['firstPrizeHits','一等奖'],['secondPrizeHits','二等奖']])if(r.random[k]?.drawRate95Envelope)$('studyRandom').textContent+=' '+n+'随机单次重放命中期率95%区间包络 '+r.random[k].drawRate95Envelope.map(n=>(n*100).toFixed(4)+'%').join(' 至 ')+'（未将重复目标当独立样本池）。';
   }
   function renderSimulation(s){
-    status('studySimStatus','已保存待确认研究快照：模拟研究，不对应已确认的正式开奖期号。来源快照 '+s.snapshotId+'；生成时间 '+Research.bj(Date.parse(s.generatedAt))+'；历史数据截止期号 '+s.throughPeriod+'；训练快照 '+s.trainingId+'；模型 '+s.version+'。第一组仅融合分最高，不代表中奖概率更高。');
-    $('studySimPicks').innerHTML=s.picks.map((p,i)=>'<article class="pick"><strong>第'+(i+1)+'组 · '+p.nums.slice(0,5).map(n=>String(n).padStart(2,'0')).join(' ')+' ＋ '+p.nums.slice(5).map(n=>String(n).padStart(2,'0')).join(' ')+'</strong><p>排序理由：五个分项按保存的研究权重加权，得分降序；仅表示内部偏好。</p><p>综合研究评分 '+p.score+' / 100</p><p>'+esc(Object.entries(p.scores).map(([k,v])=>k+' '+(v*100).toFixed(2)).join('；'))+'</p><small>北京时间 '+esc(Research.bj(Date.parse(s.generatedAt)))+'；历史截止 '+esc(s.throughPeriod)+'</small></article>').join('');
+    status('studySimStatus','已保存待确认研究快照：模拟研究，不对应已确认的正式开奖期号。来源快照 '+s.snapshotId+'；生成时间 '+Research.bj(Date.parse(s.generatedAt))+'；历史数据截止期号 '+s.throughPeriod+'；训练快照 '+s.trainingId+'；模型 '+s.version+'；权重 '+JSON.stringify(s.weights)+'；搜索 '+(s.search||'旧版搜索')+'。第一组仅融合分最高，不代表中奖概率更高。');
+    $('v3Analysis').innerHTML='<summary>全历史 / 300 / 100 / 30指标与异常统计</summary><pre>'+esc(JSON.stringify(s.analytics||'旧快照无这些指标，不补造',null,2))+'</pre>';
+    $('studySimPicks').innerHTML=s.picks.map((p,i)=>'<article class="pick"><strong>第'+(i+1)+'组 · '+p.nums.slice(0,5).map(n=>String(n).padStart(2,'0')).join(' ')+' ＋ '+p.nums.slice(5).map(n=>String(n).padStart(2,'0')).join(' ')+'</strong><p>排序理由：五个分项按保存的研究权重加权，得分降序；仅表示内部偏好。</p><p>综合研究评分 '+Number(p.score).toFixed(6)+' / 100</p><p>'+esc(Object.entries(p.scores).map(([k,v])=>k+' '+(v*100).toFixed(2)).join('；'))+'</p><p>模型贡献 '+esc(JSON.stringify(p.contributions||'旧快照未记录'))+'</p><p>独立留出验证（同排名模型，不是当前号码的事前成绩） '+esc(JSON.stringify(s.validation?.byRank?.[i]||s.validation||'旧快照未记录'))+'；未验证预测优势</p><small>北京时间 '+esc(Research.bj(Date.parse(s.generatedAt)))+'；历史截止 '+esc(s.throughPeriod)+'</small></article>').join('');
   }
+  window.V3WorkerGenerate=rows=>compute({kind:'v3formal',rows});
   $('studyRead').onclick=async()=>{if(busy||!ready)return;busy=true;controls();try{await read()}catch(e){status('studyReadStatus','读取失败：'+e.message)}finally{busy=false;controls()}};
   $('studyTrain').onclick=()=>start('train');$('studyRetrain').onclick=()=>start('train',true);$('studyReplay').onclick=()=>start('replay');
   $('studyPause').onclick=()=>{pause=true;status('studyError','已收到暂停请求；等当前批事务确认后停止。尚未保存的计算不会计入进度。')};
@@ -98,8 +100,8 @@
     if(busy||!ready)return;busy=true;controls();try{
       if(!model||model.snapshotId!==snapshot?.id)throw Error('先完成当前快照训练');
       const generatedAt=P.stamp();if(Date.parse(model.completedAt)>Date.parse(generatedAt))throw Error('设备时间早于训练完成时间，请核实设备时间');
-      const seed=crypto.getRandomValues(new Uint32Array(1))[0],picks=await compute({kind:'simulate',rows:model.model.rows,seed});
-      const s={id:id(),kind:'模拟研究，不对应已确认的正式开奖期号',diagnostics:P.diagnose(picks.map(p=>p.nums)),pendingTarget:true,version:P.version,engine:Research.VERSION,generatedAt,throughPeriod:model.model.trainedThroughPeriod,trainingId:model.id,snapshotId:snapshot.id,hash:snapshot.hash,seed,picks,weights:P.weights};
+      const result=await compute({kind:'simulate',rows:snapshot.rows}),picks=result.picks;
+      const s={id:id(),kind:'模拟研究，不对应已确认的正式开奖期号',diagnostics:P.diagnose(picks.map(p=>p.nums)),pendingTarget:true,version:V3.version,engine:V3.version,generatedAt,throughPeriod:model.model.trainedThroughPeriod,trainingId:model.id,snapshotId:snapshot.id,hash:snapshot.hash,seed:null,picks,weights:result.weights,validation:result.heldOut,calibration:result.calibration,analytics:result.analytics,search:result.search,advantage:result.advantage};
       await S.add('simulations',s);renderSimulation(s);
     }catch(e){status('studySimStatus','模拟未保存：'+e.message)}finally{busy=false;controls()}
   };
