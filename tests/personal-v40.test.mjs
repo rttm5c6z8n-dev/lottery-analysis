@@ -1,1 +1,15 @@
-import assert from 'node:assert/strict';import{chooseResult,bridgeRecord}from '../personal/v40-core.mjs';const r={id:'abc',generatedAt:'2026-11-10T01:00:00Z',picks:[{nums:[1,2,3,4,5,6,7]}],throughPeriod:'26120',version:'v31'};const c=chooseResult([r],'abc',0);const b=bridgeRecord({result:c,period:'26135',now:'2026-11-11T00:00:00Z'});assert.equal(b.source.resultId,'abc');assert.deepEqual(b.ticket.back,[6,7]);assert.throws(()=>chooseResult([r],'abc',2));assert.throws(()=>bridgeRecord({result:c,period:'26135',now:'2026-11-09T00:00:00Z'}));console.log('V4.0 tests passed');
+import assert from 'node:assert/strict';
+import{chooseResult,bridgeRecord}from '../personal/v40-core.mjs';
+const r={id:'abc',generatedAt:'2026-11-10T01:00:00Z',picks:[{nums:[1,2,3,4,5,6,7]}],throughPeriod:'26120',version:'v31'};
+const c=chooseResult([r],'abc',0);
+const input={result:c,period:'26135',now:'2026-11-11T00:00:00Z',drawAt:'2026-11-14T20:30:00+08:00',sourceUrl:'https://www.sport.gov.cn/notice'};
+const b=bridgeRecord(input);
+assert.equal(b.source.resultId,'abc');
+assert.deepEqual(b.ticket.back,[6,7]);
+assert.equal(b.targetEvidence.plannedDrawAt,input.drawAt);
+assert.throws(()=>chooseResult([r],'abc',2));
+assert.throws(()=>bridgeRecord({...input,now:'2026-11-09T00:00:00Z'}),/模型生成时间/);
+assert.throws(()=>bridgeRecord({...input,drawAt:'2026-11-10T20:30:00+08:00'}),/计划开奖时间/);
+assert.throws(()=>bridgeRecord({...input,drawAt:'2026-11-14T20:30:00'}),/明确时区/);
+assert.throws(()=>bridgeRecord({...input,sourceUrl:'https://sport.gov.cn@evil.example/'}));
+console.log('V4.0 tests passed');
