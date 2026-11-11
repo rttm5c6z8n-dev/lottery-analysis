@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import{chooseResult,bridgeRecord}from '../personal/v40-core.mjs';
+import{prepareEvidence,applyEvidence}from '../personal/v42-core.mjs';
+import{auditJournal}from '../personal/v41-core.mjs';
+const result={id:'fixture',generatedAt:'2026-11-10T01:00:00Z',picks:[{nums:[1,2,3,4,5,6,7]}],throughPeriod:'26120',version:'fixture'};
+const chosen=chooseResult([result],'fixture',0);
+const record=bridgeRecord({result:chosen,period:'26135',now:'2026-11-11T00:00:00Z',drawAt:'2026-11-14T20:30:00+08:00',sourceUrl:'https://www.sport.gov.cn/notice'});
+const evidence=prepareEvidence({period:'26135',numbers:'01 02 03 04 05 06 07',url:'https://www.sport.gov.cn/result',title:'人工录入测试',observedAt:'2026-11-15T00:00:00Z'});
+const verified=applyEvidence([record],evidence);
+assert.equal(verified.matched,1);
+const audit=auditJournal(verified.records);
+assert.equal(audit.stats.verified,1);
+assert.equal(audit.stats.exact,1);
+assert.equal(audit.stats.confirmedOfficial,0);
+assert.equal(audit.issues.length,0);
+const compromised=structuredClone(verified.records[0]);compromised.verification.result.frontHits=4;
+assert.equal(auditJournal([compromised]).stats.verified,0);
+console.log('V4.0→V4.2→V4.1 integration test passed');
