@@ -10,6 +10,7 @@ on:
       - 'tests/personal-real-data-check.test.mjs'
       - 'tests/personal-v31-archive-view.test.mjs'
       - 'tests/personal-five-pick-integration.test.mjs'
+      - 'tests/personal-period-score.test.mjs'
       - '.github/workflows/personal-research-tests.yml'
   workflow_dispatch:
 jobs:
@@ -34,6 +35,7 @@ jobs:
           node tests/personal-real-data-check.test.mjs
           node tests/personal-v31-archive-view.test.mjs
           node tests/personal-five-pick-integration.test.mjs
+          node tests/personal-period-score.test.mjs
       - name: Validate module syntax
         run: |
-          for file in personal/v{38,39,40,41,42}-core.mjs personal/v38-backup.mjs personal/storage-health.mjs personal/browser-self-test.mjs personal/real-data-check.mjs personal/v31-archive-view.mjs personal/v31-app.mjs; do node --check "$file"; done
+          for file in personal/v{38,39,40,41,42}-core.mjs personal/v38-backup.mjs personal/storage-health.mjs personal/browser-self-test.mjs personal/real-data-check.mjs personal/v31-archive-view.mjs personal/v31-app.mjs personal/period-score.mjs; do node --check "$file"; done
