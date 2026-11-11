@@ -1,39 +1,78 @@
 import{valid}from './v31-core.mjs';
 export function diagnoseResearch({snapshots=[],trains=[],reports=[],results=[],searches=[]}){
- const errors=[],warnings=[],latest={};
- const byId=(items)=>new Map(items.filter(x=>x&&typeof x.id==='string').map(x=>[x.id,x]));
- const snaps=byId(snapshots),training=byId(trains),rep=byId(reports);
+ const errors=[],warnings=[];
  const add=(severity,message)=>{(severity==='error'?errors:warnings).push(message)};
+ const byId=(items,label)=>{const out=new Map();for(const item of items){if(!item||typeof item.id!=='string'){add('error',label+'存在缺失ID的记录');continue}if(out.has(item.id))add('error',label+'存在重复ID：'+item.id);out.set(item.id,item)}return out};
+ const snaps=byId(snapshots,'历史快照'),training=byId(trains,'训练记录'),rep=byId(reports,'报告'),byId(results,'选号结果');
+ const unhealthySnapshots=new Set(),unhealthyTrains=new Set(),unhealthyReports=new Set();
+ let latestSnapshot=null;
  for(const s of snapshots){
-  if(!Array.isArray(s?.rows)){add('error','快照 '+String(s?.id||'?')+' 没有历史号码数组');continue}
-  const seen=new Set();let invalid=0,dupes=0,badOrder=0;
-  let lastDate='',lastPeriod='';
+  if(!Array.isArray(s?.rows)){add('error','快照 '+String(s?.id||'?')+' 没有历史号码数组');unhealthySnapshots.add(s?.id);continue}
+  const seen=new Set();let invalid=0,dupes=0,badOrder=0,lastDate='',lastPeriod='';
   for(const r of s.rows){
    if(!valid(r))invalid++;
-   const id=String(r?.period??'');
+   const id=String(r?.period??''),date=String(r?.date??'');
    if(seen.has(id))dupes++;seen.add(id);
-   if(lastDate&&(String(r?.date)<lastDate||(String(r?.date)===lastDate&&id<=lastPeriod)))badOrder++;
-   lastDate=String(r?.date??'');lastPeriod=id;
+   if(lastDate&&(date<lastDate||(date===lastDate&&id<=lastPeriod)||Number(id)<=Number(lastPeriod)))badOrder++;
+   lastDate=date;lastPeriod=id;
   }
   const info={id:s.id,rows:s.rows.length,invalid,duplicates:dupes,orderErrors:badOrder,start:s.rows[0]?.period||null,end:s.rows.at(-1)?.period||null,sourceHash:s.sourceHash||null,createdAt:s.createdAt||null};
-  latest.snapshot=(!latest.snapshot||String(s.createdAt)>String(latest.snapshot.createdAt))?info:latest.snapshot;
-  if(invalid||dupes||badOrder)add('error','历史快照 '+String(s.id)+'：格式异常'+invalid+'，重复期号'+dupes+'，排序问题'+badOrder);
+  if(!latestSnapshot||String(s.createdAt||'')>String(latestSnapshot.createdAt||''))latestSnapshot=info;
+  if(invalid||dupes||badOrder){unhealthySnapshots.add(s.id);add('error','历史快照 '+String(s.id)+'：格式异常'+invalid+'，重复期号'+dupes+'，排序问题'+badOrder)}
  }
- for(const t of trains){if(!snaps.has(t.snapshotId))add('error','训练 '+String(t.id)+' 找不到对应历史快照');else if(t.sourceHash&&snaps.get(t.snapshotId)?.sourceHash&&t.sourceHash!==snaps.get(t.snapshotId).sourceHash)add('error','训练 '+String(t.id)+' 的历史数据指纹不一致')}
- for(const r of reports){if(!snaps.has(r.snapshotId))add('error','报告 '+String(r.id)+' 找不到历史快照');if(!training.has(r.trainId))add('error','报告 '+String(r.id)+' 找不到训练记录')}
- let validResults=0;for(const r of results){
-  if(!snaps.has(r.snapshotId))add('error','选号结果 '+String(r.id)+' 找不到历史快照');
-  if(!training.has(r.trainId))add('error','选号结果 '+String(r.id)+' 找不到训练记录');
-  if(!rep.has(r.reportId))add('error','选号结果 '+String(r.id)+' 找不到验证报告');
-  if(!Array.isArray(r.picks)||r.picks.length===0)add('error','选号结果 '+String(r.id)+' 缺少组合');
-  else if(r.picks.some(x=>!Array.isArray(x.nums)||x.nums.length!==7||!valid({period:'26001',date:'2026-01-01',nums:x.nums})))add('error','选号结果 '+String(r.id)+' 有非法组合');
-  else validResults++;
+ for(const t of trains){
+  const snap=snaps.get(t.snapshotId);let bad=false;
+  if(!snap){bad=true;add('error','训练 '+String(t.id)+' 找不到对应历史快照')}
+  else if(unhealthySnapshots.has(t.snapshotId)){bad=true;add('error','训练 '+String(t.id)+' 关联的历史快照有结构错误')}
+  if(snap&&t.sourceHash&&snap.sourceHash&&t.sourceHash!==snap.sourceHash){bad=true;add('error','训练 '+String(t.id)+' 的历史数据指纹不一致')}
+  if(bad)unhealthyTrains.add(t.id);
+ }
+ for(const r of reports){
+  const snap=snaps.get(r.snapshotId),train=training.get(r.trainId);let bad=false;
+  if(!snap){bad=true;add('error','报告 '+String(r.id)+' 找不到历史快照')}
+  if(!train){bad=true;add('error','报告 '+String(r.id)+' 找不到训练记录')}
+  if(snap&&unhealthySnapshots.has(r.snapshotId)){bad=true;add('error','报告 '+String(r.id)+' 的快照有结构错误')}
+  if(train&&unhealthyTrains.has(r.trainId)){bad=true;add('error','报告 '+String(r.id)+' 的训练记录有结构错误')}
+  if(train&&train.snapshotId!==r.snapshotId){bad=true;add('error','报告 '+String(r.id)+' 的训练与报告快照不一致')}
+  if(snap&&r.sourceHash&&snap.sourceHash&&r.sourceHash!==snap.sourceHash){bad=true;add('error','报告 '+String(r.id)+' 的历史数据指纹不一致')}
+  if(bad)unhealthyReports.add(r.id);
+ }
+ let validResults=0;
+ for(const r of results){
+  const snap=snaps.get(r.snapshotId),train=training.get(r.trainId),report=rep.get(r.reportId);
+  let bad=false;
+  function issue(message){bad=true;add('error','选号结果 '+String(r.id)+' '+message)}
+  if(!snap)issue('找不到历史快照');
+  if(!train)issue('找不到训练记录');
+  if(!report)issue('找不到验证报告');
+  if(snap&&unhealthySnapshots.has(r.snapshotId))issue('关联的历史快照有结构错误');
+  if(train&&unhealthyTrains.has(r.trainId))issue('关联的训练记录有结构错误');
+  if(report&&unhealthyReports.has(r.reportId))issue('关联的验证报告有结构错误');
+  if(train&&train.snapshotId!==r.snapshotId)issue('训练与选号的快照不一致');
+  if(report&&(report.snapshotId!==r.snapshotId||report.trainId!==r.trainId))issue('验证报告与选号的快照或训练不一致');
+  if(snap&&r.sourceHash&&snap.sourceHash&&r.sourceHash!==snap.sourceHash)issue('历史数据指纹不一致');
+  if(!Array.isArray(r.picks)||r.picks.length===0)issue('缺少组合');
+  else if(r.picks.some(x=>!Array.isArray(x.nums)||x.nums.length!==7||!valid({period:'26001',date:'2026-01-01',nums:x.nums})))issue('有非法组合');
+  if(!bad)validResults++;
  }
  if(!snapshots.length)add('warning','没有历史数据快照');
  if(!trains.length)add('warning','没有训练结果');
  if(!reports.length)add('warning','没有验证报告');
  if(!results.length)add('warning','没有保存的完整选号结果；不代表数据丢失');
- return{counts:{snapshots:snapshots.length,trains:trains.length,reports:reports.length,results:results.length,searches:searches.length},latestSnapshot:latest.snapshot||null,validResults,errors,warnings,checkedAt:new Date().toISOString(),disclaimer:'仅检查当前浏览器本机研究库的结构与记录关联；不校验每期开奖是否与官方一致，也不证明预测能力'};
+ return{counts:{snapshots:snapshots.length,trains:trains.length,reports:reports.length,results:results.length,searches:searches.length},latestSnapshot,validResults,errors,warnings,checkedAt:new Date().toISOString(),disclaimer:'只读检查本机研究库的结构和关联，不等于每期开奖已获官方认证，也不能证明预测能力'};
+}
+export async function verifySnapshotFingerprints(snapshots=[],digest=globalThis.crypto?.subtle){
+ if(!digest?.digest)return {checked:0,matched:0,mismatches:[],unsupported:true};
+ const mismatches=[];let checked=0,matched=0;
+ for(const s of snapshots){
+  if(!s?.sourceHash||!Array.isArray(s.rows))continue;
+  const canonical=s.rows.map(r=>({period:r.period,date:r.date,nums:r.nums}));
+  const bytes=new Uint8Array(await digest.digest('SHA-256',new TextEncoder().encode(JSON.stringify(canonical))));
+  const hash=[...bytes].map(n=>n.toString(16).padStart(2,'0')).join('');
+  checked++;
+  if(hash===s.sourceHash)matched++;else mismatches.push(String(s.id));
+ }
+ return{checked,matched,mismatches,unsupported:false};
 }
 export async function readResearchData(idb){
  if(!idb)throw Error('当前浏览器不支持IndexedDB');
