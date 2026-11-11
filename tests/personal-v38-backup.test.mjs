@@ -18,3 +18,13 @@ assert.throws(()=>mergeBackup([a],{records:[a,tampered]}),/不一致/);
 assert.throws(()=>mergeBackup(null,backup),/本机记录损坏/);
 assert.throws(()=>mergeBackup([a],{records:null}),/不是预测记录备份/);
 console.log('V3.8 backup tests passed');
+
+const five=[1,2,3,4,5].map(rank=>({...buildRecord({period:'26140',front:[rank,rank+5,rank+10,rank+15,rank+20].join(' '),back:'6 7',method:'V3.1 第'+rank+'组',createdAt:'2026-11-11T00:00:00Z'}),source:{type:'v31-result',resultId:'archived-result-1',rank}}));
+const fiveBackup=makeBackup(five,'2026-11-11T00:00:00Z');
+const mergedFive=mergeBackup([a],fiveBackup);
+assert.equal(mergedFive.added,5);
+assert.equal(mergedFive.records.length,6);
+assert.equal(mergeBackup(mergedFive.records,fiveBackup).skipped,5);
+assert.throws(()=>mergeBackup([a],{records:five.slice(0,4)}),/不是完整5组/);
+
+console.log('Five-pick backup restore tests passed');
