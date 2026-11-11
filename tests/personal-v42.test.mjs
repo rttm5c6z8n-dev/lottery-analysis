@@ -13,3 +13,13 @@ assert.throws(()=>prepareEvidence({...e,url:'https://sport.gov.cn@evil.com/path'
 assert.throws(()=>applyEvidence([{...r,createdAt:'2026-11-12T00:00:00Z'}],e),/保存时间/);
 assert.throws(()=>applyEvidence([{...r,source:{generatedAt:'2026-11-11T23:00:00Z'}}],e),/模型生成时间/);
 console.log('V4.2 tests passed');
+
+const five=[1,2,3,4,5].map(rank=>({...r,source:{type:'v31-result',resultId:'source1',rank},ticket:{front:[rank,rank+5,rank+10,rank+15,rank+20],back:[6,7]}}));
+const multi=applyEvidence(five,e);
+assert.equal(multi.matched,5);
+assert.equal(multi.records.filter(x=>x.verification).length,5);
+assert.equal(multi.records[0].verification.result.frontHits,1);
+assert.throws(()=>applyEvidence(multi.records,e),/已核验/);
+const partial=[...five.slice(0,4),{...five[4],verification:multi.records[4].verification}];
+assert.throws(()=>applyEvidence(partial,e),/已核验/);
+console.log('Five-pick draw verification tests passed');
