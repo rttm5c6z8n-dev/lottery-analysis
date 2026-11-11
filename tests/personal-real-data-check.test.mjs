@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import{diagnoseResearch,readResearchData,inspectOriginalHistory}from '../personal/real-data-check.mjs';
+import{diagnoseResearch,readResearchData,inspectOriginalHistory,verifySnapshotFingerprints}from '../personal/real-data-check.mjs';
 const row=(period,date,nums=[1,2,3,4,5,6,7])=>({period,date,nums});
 const snap={id:'s1',sourceHash:'h1',createdAt:'2026-11-11T01:00:00Z',rows:[row('26001','2026-01-01'),row('26002','2026-01-03')]};
 const train={id:'t1',snapshotId:'s1',sourceHash:'h1'};
@@ -33,3 +33,20 @@ assert.equal((await inspectOriginalHistory('{broken')).state,'invalid');
 const duplicated=await inspectOriginalHistory(JSON.stringify([row('26001','2026-01-01'),row('26001','2026-01-01')]),[],fakeDigest);
 assert.equal(duplicated.duplicates,1);
 console.log('Original cache fingerprint checks passed');
+
+const badResult=diagnoseResearch({snapshots:[snap,{...snap,id:'s2'}],trains:[train],reports:[report],results:[{...result,snapshotId:'s2'}]});
+assert.equal(badResult.validResults,0);
+assert(badResult.errors.some(x=>x.includes('快照不一致')));
+const brokenSnapshot=diagnoseResearch({snapshots:[{...snap,rows:[snap.rows[0],snap.rows[0]]}],trains:[train],reports:[report],results:[result]});
+assert.equal(brokenSnapshot.validResults,0);
+const mixedReport=diagnoseResearch({snapshots:[snap],trains:[train],reports:[{...report,trainId:'different'}],results:[result]});
+assert.equal(mixedReport.validResults,0);
+const expectedHash='2a'.repeat(32);
+const fp=await verifySnapshotFingerprints([{...snap,sourceHash:expectedHash}],fakeDigest);
+assert.equal(fp.checked,1);
+assert.equal(fp.matched,1);
+assert.deepEqual(fp.mismatches,[]);
+const mismatch=await verifySnapshotFingerprints([{...snap,sourceHash:'0'.repeat(64)}],fakeDigest);
+assert.equal(mismatch.mismatches.length,1);
+assert.equal((await verifySnapshotFingerprints([snap],null)).unsupported,true);
+console.log('Full linkage and snapshot hash checks passed');
