@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import{inspectPredictionText,readV31StoreCounts}from '../personal/storage-health.mjs';
+assert.deepEqual(inspectPredictionText(null).state,'empty');
+assert.equal(inspectPredictionText('[{"verification":null},{"verification":{"result":{}}}]').count,2);
+assert.equal(inspectPredictionText('[{"verification":null},{"verification":{"result":{}}}]').verified,1);
+assert.equal(inspectPredictionText('{oops').state,'error');
+assert.equal(inspectPredictionText('{"bad":true}').state,'error');
+await assert.rejects(()=>readV31StoreCounts(null),/不支持/);
+let count=0,aborted=false;
+const fake={open(){count++;const q={transaction:{abort(){aborted=true}}};queueMicrotask(()=>{q.onupgradeneeded();q.error={name:'AbortError'};q.onerror()});return q}};
+await assert.rejects(()=>readV31StoreCounts(fake),/未发现原V3.1数据库/);
+assert.equal(count,1);
+assert.equal(aborted,true);
+console.log('Storage-health non-destructive tests passed');
