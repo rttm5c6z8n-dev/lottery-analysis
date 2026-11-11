@@ -1,0 +1,23 @@
+name: Personal regression
+on:
+  push:
+    paths:
+      - 'personal/**'
+      - 'tests/personal-v*.test.mjs'
+      - '.github/workflows/personal-research-tests.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test personal modules
+        run: |
+          node tests/personal-v38.test.mjs
+          node tests/personal-v39.test.mjs
+          node tests/personal-v40.test.mjs
+          node tests/personal-v41.test.mjs
+          node tests/personal-v42.test.mjs
