@@ -82,6 +82,7 @@ async function refreshOfficial(){
    '查询时间：'+data.observedAt,
    '官网已发布最新识别期号：'+data.latestPublished,
    '下一期候选期号（未经官方确认）：'+(data.tentativeNextPeriod||'无法计算'),
+   '下一常规开奖日候选（未核实休市及具体时间）：'+(data.tentativeNextRegularDate||'无法计算'),
    '最新公告：'+data.latestBulletin?.title,
    '',
    '注意：网站结构可能改变，公告期号也可能不是当前最新；休市和开奖时间均未核实。',
