@@ -3,7 +3,7 @@ export function diagnoseResearch({snapshots=[],trains=[],reports=[],results=[],s
  const errors=[],warnings=[];
  const add=(severity,message)=>{(severity==='error'?errors:warnings).push(message)};
  const byId=(items,label)=>{const out=new Map();for(const item of items){if(!item||typeof item.id!=='string'){add('error',label+'存在缺失ID的记录');continue}if(out.has(item.id))add('error',label+'存在重复ID：'+item.id);out.set(item.id,item)}return out};
- const snaps=byId(snapshots,'历史快照'),training=byId(trains,'训练记录'),rep=byId(reports,'报告'),byId(results,'选号结果');
+ const snaps=byId(snapshots,'历史快照'),training=byId(trains,'训练记录'),rep=byId(reports,'报告');byId(results,'选号结果');
  const unhealthySnapshots=new Set(),unhealthyTrains=new Set(),unhealthyReports=new Set();
  let latestSnapshot=null;
  for(const s of snapshots){
