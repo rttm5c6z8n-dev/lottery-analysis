@@ -13,6 +13,7 @@ on:
       - 'tests/personal-period-score.test.mjs'
       - 'tests/personal-dlt-official.test.mjs'
       - 'tests/personal-dlt-results.test.mjs'
+      - 'tests/personal-dlt-endpoint.test.mjs'
       - '.github/workflows/personal-research-tests.yml'
   workflow_dispatch:
 jobs:
@@ -41,6 +42,7 @@ jobs:
           node tests/personal-period-score.test.mjs
           node tests/personal-dlt-official.test.mjs
           node tests/personal-dlt-results.test.mjs
+          node tests/personal-dlt-endpoint.test.mjs
       - name: Validate module syntax
         run: |
           for file in personal/v{38,39,40,41,42}-core.mjs personal/v38-backup.mjs personal/storage-health.mjs personal/browser-self-test.mjs personal/real-data-check.mjs personal/v31-archive-view.mjs personal/v31-app.mjs personal/period-score.mjs personal/v40-app.mjs personal/v40-preflight.mjs personal/dlt-official-core.mjs functions/api/dlt-announcements.js personal/dlt-results-core.mjs functions/api/dlt-results.js; do node --check "$file"; done
