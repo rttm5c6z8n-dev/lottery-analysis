@@ -19,7 +19,7 @@ export function auditJournal(records){
    const saved=Date.parse(r.createdAt),checked=Date.parse(r.verification.verifiedAt),generated=r.source?.generatedAt?Date.parse(r.source.generatedAt):null;
    if(!Number.isFinite(saved)||!Number.isFinite(checked)||checked<saved||(generated!==null&&(!Number.isFinite(generated)||generated>saved))){issues.push({index,reason:'记录时间顺序异常'});continue}
    stats.verified++;stats.frontHits+=actual.frontHits;stats.backHits+=actual.backHits;if(actual.exact)stats.exact++;
-   if(r.verification.officialSourceUrl)stats.confirmedOfficial++;
+   if(r.verification.officiallyVerified===true)stats.confirmedOfficial++;
    valid.push({index,period:r.period,status:'核验完成（未独立确认官方来源）',source:r.source?.type||'手工',frontHits:actual.frontHits,backHits:actual.backHits});
   }catch(e){issues.push({index,reason:'核验数据异常：'+e.message})}
  }
