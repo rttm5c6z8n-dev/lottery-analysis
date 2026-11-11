@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import{diagnoseResearch,readResearchData}from '../personal/real-data-check.mjs';
+import{diagnoseResearch,readResearchData,inspectOriginalHistory}from '../personal/real-data-check.mjs';
 const row=(period,date,nums=[1,2,3,4,5,6,7])=>({period,date,nums});
 const snap={id:'s1',sourceHash:'h1',createdAt:'2026-11-11T01:00:00Z',rows:[row('26001','2026-01-01'),row('26002','2026-01-03')]};
 const train={id:'t1',snapshotId:'s1',sourceHash:'h1'};
@@ -20,3 +20,16 @@ const fake={open(){const q={transaction:{abort(){abortCount++}}};queueMicrotask(
 await assert.rejects(()=>readResearchData(fake),/没有创建或修改数据/);
 assert.equal(abortCount,1);
 console.log('Real-data read-only audit tests passed');
+
+const original=JSON.stringify([row('26001','2026-01-01'),row('26002','2026-01-03')]);
+const fakeDigest={digest:async()=>new Uint8Array(32).fill(42).buffer};
+const hash='2a'.repeat(32);
+const inspection=await inspectOriginalHistory(original,[{originalCacheHash:hash}],fakeDigest);
+assert.equal(inspection.count,2);
+assert.equal(inspection.valid,2);
+assert.equal(inspection.matches,1);
+assert.equal((await inspectOriginalHistory(null)).state,'missing');
+assert.equal((await inspectOriginalHistory('{broken')).state,'invalid');
+const duplicated=await inspectOriginalHistory(JSON.stringify([row('26001','2026-01-01'),row('26001','2026-01-01')]),[],fakeDigest);
+assert.equal(duplicated.duplicates,1);
+console.log('Original cache fingerprint checks passed');
