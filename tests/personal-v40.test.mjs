@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import{chooseResult,bridgeRecord}from '../personal/v40-core.mjs';
+import{chooseResult,bridgeRecord,eligibleArchivedResults}from '../personal/v40-core.mjs';
 const r={id:'abc',generatedAt:'2026-11-10T01:00:00Z',picks:[{nums:[1,2,3,4,5,6,7]}],throughPeriod:'26120',version:'v31'};
 const c=chooseResult([r],'abc',0);
 const input={result:c,period:'26135',now:'2026-11-11T00:00:00Z',drawAt:'2026-11-14T20:30:00+08:00',sourceUrl:'https://www.sport.gov.cn/notice'};
@@ -13,3 +13,11 @@ assert.throws(()=>bridgeRecord({...input,drawAt:'2026-11-10T20:30:00+08:00'}),/�
 assert.throws(()=>bridgeRecord({...input,drawAt:'2026-11-14T20:30:00'}),/明确时区/);
 assert.throws(()=>bridgeRecord({...input,sourceUrl:'https://sport.gov.cn@evil.example/'}));
 console.log('V4.0 tests passed');
+
+const archive={...r,coverage:1,covered:21425712,total:21425712,snapshotId:'s1',trainId:'t1',reportId:'rep1',sourceHash:'sha',picks:Array.from({length:5},(_,i)=>({nums:[1+i,2+i,3+i,4+i,5+i,6,7],score:10-i}))};
+const lineage={snapshots:[{id:'s1',sourceHash:'sha'}],trains:[{id:'t1',snapshotId:'s1'}],reports:[{id:'rep1',snapshotId:'s1',trainId:'t1'}],results:[archive]};
+assert.equal(eligibleArchivedResults(lineage).length,1);
+assert.equal(eligibleArchivedResults({...lineage,results:[{...archive,coverage:.25}]}).length,0);
+assert.equal(eligibleArchivedResults({...lineage,results:[{...archive,reportId:'missing'}]}).length,0);
+assert.throws(()=>chooseResult([{...r,picks:[{nums:[1,1,3,4,5,6,7]}]}],'abc',0),/前区需5个/);
+console.log('V4.0 archival lineage filtering tests passed');
