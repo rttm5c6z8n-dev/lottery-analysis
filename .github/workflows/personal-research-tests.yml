@@ -4,6 +4,7 @@ on:
     paths:
       - 'personal/**'
       - 'tests/personal-v*.test.mjs'
+      - 'tests/personal-integration.test.mjs'
       - '.github/workflows/personal-research-tests.yml'
   workflow_dispatch:
 jobs:
@@ -21,3 +22,7 @@ jobs:
           node tests/personal-v40.test.mjs
           node tests/personal-v41.test.mjs
           node tests/personal-v42.test.mjs
+          node tests/personal-integration.test.mjs
+      - name: Validate module syntax
+        run: |
+          for file in personal/v{38,39,40,41,42}-core.mjs; do node --check "$file"; done
