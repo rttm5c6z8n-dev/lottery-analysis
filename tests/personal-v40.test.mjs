@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import{chooseResult,bridgeRecord,eligibleArchivedResults}from '../personal/v40-core.mjs';
+import{chooseResult,bridgeRecord,eligibleArchivedResults,buildFiveRecords,appendFiveRecords}from '../personal/v40-core.mjs';
 const r={id:'abc',generatedAt:'2026-11-10T01:00:00Z',picks:[{nums:[1,2,3,4,5,6,7]}],throughPeriod:'26120',version:'v31'};
 const c=chooseResult([r],'abc',0);
 const input={result:c,period:'26135',now:'2026-11-11T00:00:00Z',drawAt:'2026-11-14T20:30:00+08:00',sourceUrl:'https://www.sport.gov.cn/notice'};
@@ -21,3 +21,12 @@ assert.equal(eligibleArchivedResults({...lineage,results:[{...archive,coverage:.
 assert.equal(eligibleArchivedResults({...lineage,results:[{...archive,reportId:'missing'}]}).length,0);
 assert.throws(()=>chooseResult([{...r,picks:[{nums:[1,1,3,4,5,6,7]}]}],'abc',0),/前区需5个/);
 console.log('V4.0 archival lineage filtering tests passed');
+
+const batch=buildFiveRecords({results:[archive],resultId:archive.id,period:'26135',now:'2026-11-11T00:00:00Z',drawAt:'2026-11-14T20:30:00+08:00',sourceUrl:'https://www.sport.gov.cn/notice'});
+assert.equal(batch.length,5);
+assert.deepEqual(batch.map(x=>x.source.rank),[1,2,3,4,5]);
+assert.equal(appendFiveRecords([],batch).length,5);
+assert.throws(()=>appendFiveRecords(batch,batch),/已有预测留档/);
+assert.throws(()=>appendFiveRecords([],batch.slice(0,4)),/完整5组/);
+assert.throws(()=>buildFiveRecords({results:[archive],resultId:archive.id,period:'26135',now:'2026-11-15T00:00:00Z',drawAt:'2026-11-14T20:30:00+08:00',sourceUrl:'https://www.sport.gov.cn/notice'}),/计划开奖时间/);
+console.log('V4.0 five-pick atomic locking tests passed');
