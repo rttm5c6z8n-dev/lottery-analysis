@@ -1,4 +1,4 @@
-import{extractDltBulletins,tentativeNextPeriod}from '../../personal/dlt-official-core.mjs';
+import{extractDltBulletins,tentativeNextPeriod,nextRegularDrawDate}from '../../personal/dlt-official-core.mjs';
 const SOURCE='https://www.gstc.org.cn/newsList/070100';
 export async function onRequestGet({request}){
  const origin=new URL(request.url).origin;
@@ -14,13 +14,16 @@ export async function onRequestGet({request}){
   const announcements=extractDltBulletins(html).slice(0,12);
   if(!announcements.length)throw Error('未从官方页面识别出大乐透公告；网站结构可能变化');
   const latest=announcements[0];
+  const beijingToday=new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10);
+  const tentativeNextRegularDate=nextRegularDrawDate(beijingToday);
   return Response.json({source:SOURCE,sourceType:'provincial-sports-lottery-official-website',observedAt:new Date().toISOString(),
    latestPublished:latest.period,latestBulletin:latest,
    tentativeNextPeriod:tentativeNextPeriod(latest.period),
+   tentativeNextRegularDate,
    announcements,
    officialWinningNumbersVerified:false,
    officialNextDrawScheduleVerified:false,
-   note:'仅识别官网公告标题里的已发布期号；下一期号码是按顺序推算的候选值，不含官方下期确认、休市核实或开奖号码。请自行核实。'},
+   note:'仅识别官网公告标题里的已发布期号；下一期号和常规开奖日只是推算的候选值，不含官方下期确认、休市核实或开奖号码。请自行核实。'},
    {headers:{'Cache-Control':'public, max-age=90','Content-Type':'application/json;charset=utf-8'}});
  }catch(e){
   return Response.json({error:e.message,source:SOURCE,officialWinningNumbersVerified:false,officialNextDrawScheduleVerified:false,
