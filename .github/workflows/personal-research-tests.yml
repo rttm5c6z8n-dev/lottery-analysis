@@ -18,6 +18,7 @@ jobs:
       - name: Test personal modules
         run: |
           node tests/personal-v38.test.mjs
+          node tests/personal-v38-backup.test.mjs
           node tests/personal-v39.test.mjs
           node tests/personal-v40.test.mjs
           node tests/personal-v41.test.mjs
@@ -25,4 +26,4 @@ jobs:
           node tests/personal-integration.test.mjs
       - name: Validate module syntax
         run: |
-          for file in personal/v{38,39,40,41,42}-core.mjs; do node --check "$file"; done
+          for file in personal/v{38,39,40,41,42}-core.mjs personal/v38-backup.mjs; do node --check "$file"; done
