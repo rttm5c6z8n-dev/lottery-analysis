@@ -1,1 +1,15 @@
-import assert from 'node:assert/strict';import{prepareEvidence,applyEvidence,findConflicts}from '../personal/v42-core.mjs';const e=prepareEvidence({period:'26135',numbers:'1 2 3 4 5 6 7',url:'https://www.sport.gov.cn/test',title:'测试',observedAt:'2026-11-11T00:00:00Z'});const r={period:'26135',createdAt:'2026-11-10T00:00:00Z',ticket:{front:[1,2,3,4,5],back:[6,7]},verification:null};const x=applyEvidence([r],e);assert.equal(x.records[0].verification.result.exact,true);assert.equal(x.records[0].verification.officialSourceUrl,e.url);assert.throws(()=>applyEvidence(x.records,e));assert.deepEqual(findConflicts(x.records),[]);assert.throws(()=>prepareEvidence({...e,url:'https://example.com'}));console.log('V4.2 tests passed');
+import assert from 'node:assert/strict';
+import{prepareEvidence,applyEvidence,findConflicts}from '../personal/v42-core.mjs';
+const e=prepareEvidence({period:'26135',numbers:'1 2 3 4 5 6 7',url:'https://www.sport.gov.cn/test',title:'测试',observedAt:'2026-11-11T00:00:00Z'});
+const r={period:'26135',createdAt:'2026-11-10T00:00:00Z',ticket:{front:[1,2,3,4,5],back:[6,7]},verification:null};
+const x=applyEvidence([r],e);
+assert.equal(x.records[0].verification.result.exact,true);
+assert.equal(x.records[0].verification.officialSourceUrl,e.url);
+assert.equal(x.records[0].verification.officiallyVerified,false);
+assert.throws(()=>applyEvidence(x.records,e));
+assert.deepEqual(findConflicts(x.records),[]);
+assert.throws(()=>prepareEvidence({...e,url:'https://example.com'}));
+assert.throws(()=>prepareEvidence({...e,url:'https://sport.gov.cn@evil.com/path'}));
+assert.throws(()=>applyEvidence([{...r,createdAt:'2026-11-12T00:00:00Z'}],e),/保存时间/);
+assert.throws(()=>applyEvidence([{...r,source:{generatedAt:'2026-11-11T23:00:00Z'}}],e),/模型生成时间/);
+console.log('V4.2 tests passed');
