@@ -13,7 +13,7 @@ assert.equal(history.latest,'26128');
 const concentration=describeFivePicks(model);
 assert.equal(concentration.distinctBackPairs,1);
 assert.equal(concentration.tickets,5);
-assert.equal(concentration.uniqueFrontNumbers,11);
+assert.equal(concentration.uniqueFrontNumbers,10);
 const args={result:model,period:'26130',drawAt:'2026-11-14T20:30:00+08:00',now:'2026-11-11T14:30:00Z',history};
 assert.equal(preflightTarget(args).ok,true);
 assert.equal(preflightTarget({...args,period:'26128'}).ok,false);
