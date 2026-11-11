@@ -58,3 +58,21 @@ export async function readResearchData(idb){
   };
  });
 }
+
+
+export async function inspectOriginalHistory(raw,snapshots=[],digest=globalThis.crypto?.subtle){
+ if(raw===null)return{state:'missing',count:0,valid:0,duplicates:0,matches:0,message:'原始历史缓存 lottery_v2_dlt 未找到；不能据此认定V3.1快照丢失'};
+ let rows;try{rows=JSON.parse(raw)}catch{return{state:'invalid',message:'原始历史缓存不是有效JSON，未修改原数据'}};
+ if(!Array.isArray(rows))return{state:'invalid',message:'原始历史缓存不是记录数组，未修改原数据'};
+ const periods=new Set();let validCount=0,duplicates=0;
+ for(const r of rows){if(valid(r))validCount++;const key=String(r?.period??'');if(periods.has(key))duplicates++;else periods.add(key)}
+ let matches=null,hash=null;
+ if(digest&&typeof digest.digest==='function'){
+  const data=new TextEncoder().encode(raw);
+  const bytes=new Uint8Array(await digest.digest('SHA-256',data));
+  hash=[...bytes].map(n=>n.toString(16).padStart(2,'0')).join('');
+  matches=snapshots.filter(s=>s&&s.originalCacheHash===hash).length;
+ }
+ return{state:'present',count:rows.length,valid:validCount,duplicates,matches,hash,
+  message:'原始历史缓存已读取。格式有效不等于逐期官方认证；指纹匹配只表示与已有快照创建时的原缓存内容相同'};
+}
