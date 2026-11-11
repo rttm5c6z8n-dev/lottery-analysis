@@ -24,6 +24,6 @@ assert.equal(officialResultResponse(history,latest.replace('07 08','07 09'),'202
 assert.equal(officialResultResponse(history,null,'2026-11-11T23:00:00+08:00').crossPageAgreement,false);
 assert.throws(()=>officialResultResponse('<p>no draw here</p>',latest,'x'),/未解析出/);
 assert.equal(parseOfficialHistoryHtml(history.replace('02121417330708','02121417330707')).some(x=>x.period==='26129'),false);
-assert.equal(parseOfficialLatestHtml(latest.replace('26129','26120')),null);
+assert.equal(parseOfficialLatestHtml(latest.replace('26129','25129')),null);
 assert.throws(()=>parseOfficialHistoryHtml('x'.repeat(2000001)),/过大/);
 console.log('Official DLT history parsing, validation and cross-page agreement tests passed');
