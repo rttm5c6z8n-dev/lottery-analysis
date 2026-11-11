@@ -71,6 +71,26 @@ function saveOne(){
   $('saved').textContent='已保存第'+chosen.rank+'组。该期不能再追加其他组。';
  }catch(e){$('saved').textContent='单组保存未执行：'+e.message}
 }
+async function refreshOfficial(){
+ const btn=$('officialRefresh'),out=$('officialStatus');btn.disabled=true;out.textContent='正在尝试读取官网公告标题……';
+ try{
+  const response=await fetch('/api/dlt-announcements',{cache:'no-store',headers:{Accept:'application/json'}});
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||'官网查询不可用');
+  const lines=[
+   '官方公告页：'+data.source,
+   '查询时间：'+data.observedAt,
+   '官网已发布最新识别期号：'+data.latestPublished,
+   '下一期候选期号（未经官方确认）：'+(data.tentativeNextPeriod||'无法计算'),
+   '最新公告：'+data.latestBulletin?.title,
+   '',
+   '注意：网站结构可能改变，公告期号也可能不是当前最新；休市和开奖时间均未核实。',
+   '不自动填入正式锁定资料，不自动确认开奖号码，不会更新历史库。'];
+  out.textContent=lines.join('\n');
+ }catch(e){
+  out.textContent='自动查询失败：'+(e?.message||String(e))+'。请直接打开下方官方网站公告链接人工核对。';
+ }finally{btn.disabled=false}
+}
 export function init(){
  $('load').onclick=load;
  $('result').onchange=updateRanks;
@@ -78,5 +98,6 @@ export function init(){
  $('save').onclick=saveOne;
  $('saveFive').onclick=saveAll;
  $('preflight').onclick=checkPreflight;
+ $('officialRefresh').onclick=refreshOfficial;
  load();
 }
