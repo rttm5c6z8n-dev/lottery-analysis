@@ -1,5 +1,6 @@
 import{chooseResult,bridgeRecord,eligibleArchivedResults,buildFiveRecords,appendFiveRecords}from './v40-core.mjs';
 import{readResearchData}from './real-data-check.mjs';
+import{latestLocalHistory,describeFivePicks,preflightTarget}from './v40-preflight.mjs';
 const $=id=>document.getElementById(id),KEY='lottery_v38_predictions';
 let results=[],busy=false;
 function status(message){$('status').textContent=message}
@@ -11,6 +12,8 @@ function refresh(){
  const pad=n=>String(n).padStart(2,'0'),rank=Number($('rank').value);
  const lines=r.picks.map((p,i)=>(i===rank?'▶ ':'  ')+'第'+(i+1)+'组 '+p.nums.slice(0,5).map(pad).join(' ')+' + '+p.nums.slice(5).map(pad).join(' '));
  $('preview').textContent='历史截止：'+r.throughPeriod+'\n模型结果：'+r.id+'\n生成时间：'+r.generatedAt+'\n\n已保存的5组研究号码：\n'+lines.join('\n')+'\n\n历史截止不代表已更新至下一期；研究评分不代表中奖概率。';
+ const stats=describeFivePicks(r);
+ $('concentration').textContent=stats?'5组号码集中度：前区合计只使用 '+stats.uniqueFrontNumbers+' 个不同号码；后区共有 '+stats.distinctBackPairs+' 种组合；两组前区平均重合 '+stats.meanPairwiseFrontOverlap.toFixed(1)+' 个号码。5注不是5个独立期开奖。':'';
 }
 function updateRanks(){
  const r=selected(),prior=$('rank').value;
@@ -40,8 +43,15 @@ async function load(){
   $('preview').textContent='存档读取未完成，不能锁定预测。';
  }finally{busy=false;$('load').disabled=false}
 }
+function checkPreflight(){
+ const history=latestLocalHistory(localStorage.getItem('lottery_v2_dlt'));
+ const result=preflightTarget({result:selected(),period:$('period').value,drawAt:$('drawAt').value,now:new Date().toISOString(),history});
+ $('preflightStatus').textContent=(result.ok?'本机时间与历史期号检查通过（非官方认证）':'不能作为事前预测锁定')+'\n'+result.errors.map(x=>'错误：'+x).concat(result.warnings.map(x=>'提醒：'+x)).join('\n');
+ return result;
+}
 function saveAll(){
  try{
+  if(!checkPreflight().ok)throw Error('期号或计划时间检查未通过，请先纠正');
   if(!$('confirmed').checked)throw Error('先核实未来期号、计划开奖时间及公告链接');
   const batch=buildFiveRecords({results,resultId:$('result').value,period:$('period').value,now:new Date().toISOString(),drawAt:$('drawAt').value,sourceUrl:$('sourceUrl').value});
   const next=appendFiveRecords(readJournal(),batch);
@@ -51,6 +61,7 @@ function saveAll(){
 }
 function saveOne(){
  try{
+  if(!checkPreflight().ok)throw Error('期号或计划时间检查未通过，请先纠正');
   if(!$('confirmed').checked)throw Error('先核实未来期号、计划开奖时间及公告链接');
   const chosen=chooseResult(results,$('result').value,Number($('rank').value));
   const item=bridgeRecord({result:chosen,period:$('period').value,now:new Date().toISOString(),drawAt:$('drawAt').value,sourceUrl:$('sourceUrl').value});
@@ -66,5 +77,6 @@ export function init(){
  $('rank').onchange=refresh;
  $('save').onclick=saveOne;
  $('saveFive').onclick=saveAll;
+ $('preflight').onclick=checkPreflight;
  load();
 }
