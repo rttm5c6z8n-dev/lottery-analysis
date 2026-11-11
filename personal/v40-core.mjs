@@ -33,3 +33,21 @@ export function bridgeRecord({result,period,now,drawAt,sourceUrl}){
  targetEvidence:{plannedDrawAt:drawAt,sourceUrl:official.href,verification:'人工核实声明，未自动校验公告内容'},
  notice:'本机时间可被修改，不是可信时间戳。仅在目标官方计划独立确认且实际开奖前留档才有事前研究意义。'};
 }
+
+export function buildFiveRecords({results,resultId,period,now,drawAt,sourceUrl}){
+ const selected=results.find(x=>x.id===resultId);
+ if(!selected||!Array.isArray(selected.picks)||selected.picks.length!==5)throw Error('必须有完整的5组研究号码');
+ const batch=Array.from({length:5},(_,rank)=>bridgeRecord({result:chooseResult(results,resultId,rank),period,now,drawAt,sourceUrl}));
+ const combinations=new Set(batch.map(r=>r.ticket.front.join(',')+'|'+r.ticket.back.join(',')));
+ if(combinations.size!==5)throw Error('5组号码中有重复组合，已停止留档');
+ return batch;
+}
+export function appendFiveRecords(current,batch){
+ if(!Array.isArray(current))throw Error('原预测存储结构异常，停止写入');
+ if(!Array.isArray(batch)||batch.length!==5)throw Error('必须一次性保存完整5组');
+ const period=batch[0]?.period,sourceId=batch[0]?.source?.resultId;
+ const ranks=new Set(batch.map(x=>x.source?.rank));
+ if(!period||!sourceId||ranks.size!==5||[1,2,3,4,5].some(n=>!ranks.has(n))||batch.some(x=>x.period!==period||x.source?.resultId!==sourceId||x.verification))throw Error('批次期号、来源或组号不一致');
+ if(current.some(x=>x?.period===period))throw Error('该期已有预测留档，禁止覆盖或追加到现有批次；请使用另一经确认的未来期号');
+ return [...current,...batch];
+}
