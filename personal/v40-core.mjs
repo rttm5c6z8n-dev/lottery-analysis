@@ -22,6 +22,7 @@ export function bridgeRecord({result,period,now,drawAt,sourceUrl}){
  validatePeriod(period);
  const generated=strictTime(result.generatedAt,'模型生成时间'),saved=strictTime(now,'预测保存时间');
  if(generated>saved)throw Error('模型生成时间晚于预测保存时间');
+ const through=String(result.throughPeriod||'');if(!/^\d{5}$/.test(through))throw Error('模型历史截止期号无效');if(Number(period)<=Number(through))throw Error('目标期号不得早于或等于模型历史截止 '+through);
  const planned=strictTime(drawAt,'计划开奖时间');
  if(saved>=planned)throw Error('计划开奖时间已经到达或早于保存时间，不允许作为事前预测');
  let official;try{official=new URL(sourceUrl)}catch{throw Error('需要提供目标期号和开奖时间的公告链接')}
