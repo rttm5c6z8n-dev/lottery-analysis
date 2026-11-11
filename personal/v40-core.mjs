@@ -3,7 +3,7 @@ import{inspectArchiveResult}from './v31-archive-view.mjs';
 export const VERSION='V4.0-bridge-r3';
 export function eligibleArchivedResults(data){
  const results=Array.isArray(data?.results)?data.results:[];
- return results.map(result=>({result,inspection:inspectArchiveResult(result,{snapshots:data.snapshots||[],trains:data.trains||[],reports:data.reports||[]})})).filter(x=>x.inspection.complete&&x.inspection.sourceConsistent&&x.inspection.picks.length===5);
+ return results.flatMap(result=>{try{const inspection=inspectArchiveResult(result,{snapshots:data.snapshots||[],trains:data.trains||[],reports:data.reports||[]});return inspection.complete&&inspection.sourceConsistent&&inspection.picks.length===5?[{result,inspection}]:[]}catch{return []}});
 }
 
 export function chooseResult(results,id,rank){
