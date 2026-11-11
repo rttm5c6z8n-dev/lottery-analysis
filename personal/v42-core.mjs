@@ -6,7 +6,7 @@ export function prepareEvidence({period,numbers,url,title,observedAt}){
  if(u.protocol!=='https:')throw Error('公告链接必须是HTTPS');
  if(u.username||u.password)throw Error('公告链接不能包含账号密码');
  const host=u.hostname.toLowerCase();
- if(!(host==='sport.gov.cn'||host.endsWith('.sport.gov.cn')||host==='lottery.gov.cn'||host.endsWith('.lottery.gov.cn')||host==='cwl.gov.cn'||host.endsWith('.cwl.gov.cn')))throw Error('目前仅允许指定政府或彩票管理网站域名；不能自动证明公告真实性');
+ if(!(host==='sport.gov.cn'||host.endsWith('.sport.gov.cn')||host==='lottery.gov.cn'||host.endsWith('.lottery.gov.cn')||host==='cwl.gov.cn'||host.endsWith('.cwl.gov.cn')||host==='gstc.org.cn'||host.endsWith('.gstc.org.cn')))throw Error('目前仅允许指定政府或彩票管理网站域名；不能自动证明公告真实性');
  if(!String(title||'').trim())throw Error('请输入公告标题');
  if(!Number.isFinite(Date.parse(observedAt)))throw Error('核验时间无效');
  return{period:p,draw,url:u.href,title:title.trim().slice(0,180),observedAt,sourceStatus:'人工摘录：网站内容与开奖期号尚未独立核实'};
