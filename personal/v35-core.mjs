@@ -1,0 +1,12 @@
+import {auditPeriods} from './v33-core.mjs';
+export const VERSION='V3.5-repeatability';
+export function analyze(rows,{years=['2008','2009','2010','2012'],zone=0}={}){
+ const a=auditPeriods(rows);if(![0,1].includes(zone))throw Error('区域非法');const max=zone?12:35,k=zone?2:5,start=zone?5:0,end=start+k;
+ const chosen=a.years.filter(y=>years.includes(y.year));if(!chosen.length)throw Error('没有所选年份');
+ const yearly=chosen.map(y=>{const counts=Array(max).fill(0);for(const r of y.rows)for(const n of r.nums.slice(start,end))counts[n-1]++;const expected=y.count*k/max;return{year:y.year,draws:y.count,expected,counts,deviations:counts.map(n=>n-expected)}});
+ const numbers=Array.from({length:max},(_,i)=>{const deviations=yearly.map(y=>y.deviations[i]),positive=deviations.filter(x=>x>0).length,negative=deviations.filter(x=>x<0).length;return{number:i+1,total:yearly.reduce((s,y)=>s+y.counts[i],0),expected:yearly.reduce((s,y)=>s+y.expected,0),positiveYears:positive,negativeYears:negative,byYear:yearly.map(y=>({year:y.year,count:y.counts[i],expected:y.expected}))}}).sort((a,b)=>Math.abs(b.total-b.expected)-Math.abs(a.total-a.expected)||a.number-b.number);
+ return{version:VERSION,zone:zone?'后区':'前区',years:yearly.map(y=>({year:y.year,draws:y.draws})),numbers,warning:'描述性筛选：这些年份是根据已观察到的异常选出的，不是独立验证；不可把重复偏差当成下一期概率。'};
+}
+export function outOfSample(rows,{trainingEnd='2012-12-31',validationStart='2014-01-01',zone=0}={}){
+ const a=auditPeriods(rows);const all=a.years.flatMap(y=>y.rows),train=all.filter(r=>r.date<=trainingEnd),test=all.filter(r=>r.date>=validationStart);if(train.length<30||test.length<30)throw Error('训练和验证分别需要至少30期');if(trainingEnd>=validationStart)throw Error('训练和验证区间不能重叠');const max=zone?12:35,k=zone?2:5,start=zone?5:0;const counts=arr=>{const x=Array(max).fill(0);for(const r of arr)for(const n of r.nums.slice(start,start+k))x[n-1]++;return x};const x=counts(train),y=counts(test),eTrain=train.length*k/max,eTest=test.length*k/max;const ranked=Array.from({length:max},(_,i)=>i).sort((a,b)=>(x[b]-eTrain)-(x[a]-eTrain)||a-b);const selected=ranked.slice(0,k);const observed=selected.reduce((s,i)=>s+y[i],0),expected=test.length*k*k/max;return{version:VERSION,zone:zone?'后区':'前区',trainDraws:train.length,testDraws:test.length,trainingEnd,validationStart,selectedNumbers:selected.map(i=>i+1).sort((a,b)=>a-b),observed,expected,difference:observed-expected,warning:'探索性样本外计数对比，不是已校准的显著性检验，也不是一等奖预测。2013年间隔未参与。'};
+}
