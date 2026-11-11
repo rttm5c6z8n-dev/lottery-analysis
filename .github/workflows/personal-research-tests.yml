@@ -27,6 +27,7 @@ jobs:
           node tests/personal-v38-backup.test.mjs
           node tests/personal-v39.test.mjs
           node tests/personal-v40.test.mjs
+          node tests/personal-v40-preflight.test.mjs
           node tests/personal-v41.test.mjs
           node tests/personal-v42.test.mjs
           node tests/personal-integration.test.mjs
@@ -38,4 +39,4 @@ jobs:
           node tests/personal-period-score.test.mjs
       - name: Validate module syntax
         run: |
-          for file in personal/v{38,39,40,41,42}-core.mjs personal/v38-backup.mjs personal/storage-health.mjs personal/browser-self-test.mjs personal/real-data-check.mjs personal/v31-archive-view.mjs personal/v31-app.mjs personal/period-score.mjs personal/v40-app.mjs; do node --check "$file"; done
+          for file in personal/v{38,39,40,41,42}-core.mjs personal/v38-backup.mjs personal/storage-health.mjs personal/browser-self-test.mjs personal/real-data-check.mjs personal/v31-archive-view.mjs personal/v31-app.mjs personal/period-score.mjs personal/v40-app.mjs personal/v40-preflight.mjs; do node --check "$file"; done
