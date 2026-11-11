@@ -1,11 +1,17 @@
-import{buildRecord,validatePeriod}from './v38-core.mjs';
-export const VERSION='V4.0-bridge-r2';
+import{buildRecord,validatePeriod,validateTicket}from './v38-core.mjs';
+import{inspectArchiveResult}from './v31-archive-view.mjs';
+export const VERSION='V4.0-bridge-r3';
+export function eligibleArchivedResults(data){
+ const results=Array.isArray(data?.results)?data.results:[];
+ return results.map(result=>({result,inspection:inspectArchiveResult(result,{snapshots:data.snapshots||[],trains:data.trains||[],reports:data.reports||[]})})).filter(x=>x.inspection.complete&&x.inspection.sourceConsistent&&x.inspection.picks.length===5);
+}
+
 export function chooseResult(results,id,rank){
  const r=results.find(x=>x.id===id);if(!r)throw Error('找不到研究结果');
  if(!r.generatedAt)throw Error('缺少生成时间');
  if(!Array.isArray(r.picks)||!r.picks.length)throw Error('结果没有选号组合');
  if(!Number.isInteger(rank)||rank<0||rank>=r.picks.length)throw Error('选号序号非法');
- const nums=r.picks[rank].nums;if(!Array.isArray(nums)||nums.length!==7)throw Error('组合结构异常');
+ const nums=r.picks[rank].nums;if(!Array.isArray(nums)||nums.length!==7)throw Error('组合结构异常');validateTicket(nums.slice(0,5).join(' '),nums.slice(5).join(' '));
  return{resultId:r.id,rank:rank+1,nums,generatedAt:r.generatedAt,trainId:r.trainId,reportId:r.reportId,weightsetId:r.weightsetId,version:r.version,throughPeriod:r.throughPeriod,searchMethod:r.searchMethod};
 }
 function strictTime(value,label){
