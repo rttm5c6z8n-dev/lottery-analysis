@@ -1,3 +1,4 @@
+import { officialResultResponse } from '../personal/dlt-results-core.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
@@ -136,4 +137,18 @@ test('calibrated summary matches arithmetic and guards against repeated periods'
   assert.ok(Math.abs(agg.expectedModelWins-2*baseline.modelWinProbability)<1e-12);
   assert.throws(()=>summarizeCalibratedPairedRounds([sample[0],sample[0]]));
   assert.equal(summarizeCalibratedPairedRounds([]).periods,0);
+});
+
+test('extended official history preserves older draws without altering default API response size',()=>{
+  const history='超级大乐透历史开奖数据 '+Array.from({length:30},(_,i)=>{
+    const period=String(26101+i),day=String((i%28)+1).padStart(2,'0');
+    return '2026-11-'+day+' '+period+' 01 02 03 04 05 06 07';
+  }).join(' ')+' 当前第 1 页';
+  const short=officialResultResponse(history,null,'2026-11-30T12:00:00.000Z');
+  const full=officialResultResponse(history,null,'2026-11-30T12:00:00.000Z',5000);
+  assert.equal(short.records.length,25);
+  assert.equal(full.records.length,30);
+  assert.equal(short.latestPeriod,'26130');
+  assert.equal(full.records.at(-1).period,'26101');
+  assert.equal(short.crossPageAgreement,false);
 });
