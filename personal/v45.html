@@ -21,21 +21,25 @@ section{background:#1e2b43;border:1px solid #425674;border-radius:16px;padding:1
 <p id="frequencyStatus">尚无结果</p>
 <div class="scroll"><table><thead><tr><th>窗口</th><th>区</th><th>号码</th><th>实际次数</th><th>随机期望</th><th>校正后p值</th></tr></thead><tbody id="frequencyRows"></tbody></table></div>
 </section>
-<section><h2>二、滚动样本外预测对照</h2>
+<section><h2>二、相邻期开奖重复率检验</h2>
+<p>分别检查连续两期开奖的前区、后区重复个数。用互不重叠的相邻期次对，与公平无放回模型的超几何期望比较，避免一期开奖结果被反复计入两个相邻样本。</p>
+<pre id="serialStatus">尚未运行；异常重复也不能直接证明存在人为干预。</pre>
+<small>两项检验分别校正，不与前述94项频率检验混为一个确认性统计结论。开奖数据若有缺期会跳过相关配对。</small></section>
+<section><h2>三、滚动样本外预测对照</h2>
 <p>固定方法：每次只能读取此前600期开奖；统计47个号码的出现次数，强收缩到均匀概率，并以限幅权重对下一期进行<strong>无放回抽样的完整5+2概率评价</strong>。连续检验最近400期，不得提前看到后面的号码。</p>
 <pre id="walkStatus">尚无结果</pre>
 <small>对数概率评分大于公平模型表示平均预测概率有改善，但仅是研究性证据。单次历史回测、近似统计区间和反复查看都不能代替未来事前锁定验证。若数据不足，页面将明确停止。</small>
 </section>
-<section><h2>三、一等奖与二等奖的两套候选研究</h2>
+<section><h2>四、一等奖与二等奖的两套候选研究</h2>
 <p>使用完全相同的历史权重，但把目标分开：一等奖要求后区两球全中，二等奖要求后区恰好中一个。先完成上面的滚动检验，然后自动给出各5注<strong>条件概率模型下</strong>的研究候选，并显示公平随机基准。</p>
 <p id="prizeGate" role="status">尚未运行滚动检验，不能生成研究候选。</p>
 <div id="prizeTables"></div><pre id="prizeNote"></pre>
 <small>这里只考察前区权重最高15个号码的3003种五数组合，以及后区全部66种两数组合。历史模型算出的“倍率”不是现实中奖概率的保证；未通过样本外验证时，候选一律标为不具预测优势证据。不会自动送到V4.0锁定，也不会改动原V3.1结果。</small>
 </section>
-<section><h2>四、官方摇奖球组与实际出球顺序</h2><p>我查到官方公告中记录了每期使用的摇奖球组，以及号码被摇出的先后顺序。这两个字段没有包含在原来的2946期排序号码里，必须单独采集。球组是在开奖前临时选择的，因此当前期的球组记录不能拿来假装提前知道下一期会用哪一套。</p>
+<section><h2>五、官方摇奖球组与实际出球顺序</h2><p>我查到官方公告中记录了每期使用的摇奖球组，以及号码被摇出的先后顺序。这两个字段没有包含在原来的2946期排序号码里，必须单独采集。球组是在开奖前临时选择的，因此当前期的球组记录不能拿来假装提前知道下一期会用哪一套。</p>
 <label>要查询的2026年已开奖期号 <input id="machinePeriod" inputmode="numeric" value="26129" maxlength="5" style="padding:10px;background:#111e35;border:1px solid #526781;border-radius:8px;color:#fff"></label>
 <button id="machineFetch" type="button">读取该期官方球组及出球顺序</button><pre id="machineStatus">尚未读取；仅在主动查询后记录到独立研究元数据中。</pre><pre id="machineSummary"></pre><p><small>来源：省级体彩机构该期开奖公告。只读保存额外的球组元数据，不修改V3.1原始历史、训练和预测结果；目前样本不足以推断物理偏差。</small></p></section>
-<section><h2>五、一、二等奖的数学基准</h2>
+<section><h2>六、一、二等奖的数学基准</h2>
 <div class="scroll"><table><thead><tr><th>覆盖</th><th>一等奖（5+2）</th><th>二等奖（5+1）</th></tr></thead><tbody id="odds"></tbody></table></div>
 <p>此表假设5注的<strong>前区5号码组合互不相同</strong>；在完全公平的摇奖中，覆盖不同号码不会令每注中奖概率更大，只影响不同注的相关性及组合覆盖方式。</p>
 </section>
@@ -48,6 +52,7 @@ import{biasFrequencyTests,walkForwardBiasTest,prizeOdds}from './v45-mechanical-b
 import{summarizeBallSetMetadata}from './v45-ballset-core.mjs';
 import{exitOrderByBallSet}from './v45-exit-order.mjs';
 import{buildPrizeHypotheses}from './v45-prize-target.mjs';
+import{serialOverlapAudit}from './v45-serial-overlap.mjs';
 const $=id=>document.getElementById(id);
 function odds(){
  const p=$('odds');p.replaceChildren();
@@ -100,6 +105,7 @@ async function run(){
  $('status').textContent='正在读取并验证历史快照……';
  $('frequencyRows').replaceChildren();$('frequencyStatus').textContent='正在计算……';
  $('walkStatus').textContent='正在计算……';$('historyInfo').textContent='';
+ $('serialStatus').textContent='正在分析相邻期次的重复个数……';
  $('prizeGate').textContent='等待真实历史滚动检验完成……';$('prizeTables').replaceChildren();$('prizeNote').textContent='';
  try{
   const h=await history(),rows=h.rows;
@@ -115,6 +121,10 @@ async function run(){
    }
    $('frequencyRows').append(row);
   }
+  const serial=serialOverlapAudit(rows);
+  $('serialStatus').textContent='有效的独立相邻期次对：'+serial.pairs+'对；缺期或跨年排除 '+serial.skippedPairs+'对。\n'+serial.zones.map(x=>x.zone+
+   '：平均重复 '+x.observedMean.toFixed(4)+'个，公平期望'+x.expectedMean.toFixed(4)+
+   '个，Z='+x.zScore.toFixed(3)+(x.passesCorrectedThreshold?'（探索性异常；不等于预测规律）':'（未超过校正阈值）')).join('\n')+'\n'+serial.note;
   const test=walkForwardBiasTest(rows);
   $('walkStatus').textContent='检验期数：'+test.evaluatedDraws+'期（'+test.firstTestPeriod+'—'+test.lastTestPeriod+'）\n每次向前训练：'+test.trainWindow+'期\n相对公平随机模型平均对数评分差：'+test.meanLogAdvantage.toFixed(6)+' nats/期\n近似95%区间：['+test.interval95.map(x=>x.toFixed(6)).join('，')+']\n前半段：'+test.firstHalfMean.toFixed(6)+'；后半段：'+test.secondHalfMean.toFixed(6)+'\n'+test.interpretation;
   const hypotheses=buildPrizeHypotheses(rows,test);
@@ -122,7 +132,7 @@ async function run(){
   $('conclusion').textContent=(test.preliminarySignal?'样本外得到初步值得关注的统计差异；必须继续在未来未发生的开奖中预注册验证。':'现有预设预测方法尚未通过稳健样本外检验，不能据此选择所谓更可能中一、二等奖的号码。')+
    '\n\n全局及近期频率校正后显著异常：'+freq.significant.length+'项。\n'+freq.caveat+'\n\n'+test.caveat;
   $('status').textContent='真实历史研究计算完成；仅生成只读研究报告，没有写入预测记录或修改历史库。';
- }catch(e){$('status').textContent='检验未完成：'+(e?.message||String(e))+'；原始数据未修改。';$('prizeGate').textContent='数据检验未完成，不能给出研究候选。';$('conclusion').textContent='未能取得可信分析结果，不能推测下一期一等奖或二等奖。'}
+ }catch(e){$('status').textContent='检验未完成：'+(e?.message||String(e))+'；原始数据未修改。';$('prizeGate').textContent='数据检验未完成，不能给出研究候选。';$('serialStatus').textContent='数据检验未完成，不能报告重复率结果。';$('conclusion').textContent='未能取得可信分析结果，不能推测下一期一等奖或二等奖。'}
  finally{btn.disabled=false}
 }
 function machineRows(){
