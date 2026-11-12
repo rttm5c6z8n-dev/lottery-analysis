@@ -122,6 +122,7 @@ export function walkForwardBiasTest(input,{testDraws=400,trainWindow=600,priorSt
   totalLogAdvantage:sum,meanLogAdvantage:mean,standardError,interval95:[lower,upper],
   firstHalfMean:firstHalf,secondHalfMean:secondHalf,
   preliminarySignal:lower>0&&firstHalf>0&&secondHalf>0,
+  scores:perDraw,
   interpretation:lower>0&&firstHalf>0&&secondHalf>0?'固定规则的样本外对数评分出现初步正向差异，仍需新开奖事前复核；不能宣布可以预测一等奖或二等奖':
    '未在预设样本外检验中获得稳健的正向证据；不应把历史热号视为可提高中奖概率',
   caveat:'本测试使用过去600期频率、预设平滑和限幅预测下一期，逐期滚动更新；对照公平随机模型的完整无序5+2开奖概率。区间使用近似标准误，历史期次可能不独立；若反复改参数、重复试验，须另留全新数据检验。没有每期球组和设备标识，不能做设备归因。'};
