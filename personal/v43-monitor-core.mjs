@@ -1,7 +1,9 @@
 import{validateTicket,verifyTicket}from './v38-core.mjs';
+import{auditMarkedBatches}from './five-batch-audit.mjs';
 export function buildProspectiveMonitor(journal,official){
  if(!Array.isArray(journal))throw Error('本机预测留档不是数组，已停止只读分析');
  if(!official||!Array.isArray(official.records))throw Error('官网接口未返回开奖列表');
+ const batchAudit=auditMarkedBatches(journal);
  const current=String(official.latestPeriod||''),latest=official.records[0];
  const latestTrusted=official.crossPageAgreement===true&&latest?.period===current;
  const byPeriod=new Map();
@@ -15,19 +17,21 @@ export function buildProspectiveMonitor(journal,official){
   }catch{}
  }
  const groups=new Map();let unsafe=0;
- for(const item of journal){
+ for(const [index,item] of journal.entries()){
   const period=String(item?.period||'');
   if(!/^\d{5}$/.test(period)){unsafe++;continue}
   if(!groups.has(period))groups.set(period,[]);
-  groups.get(period).push(item);
+  groups.get(period).push({record:item,index});
  }
  const rows=[...groups].map(([period,items])=>{
   const draw=byPeriod.get(period);
   const consistentSource=period===current&&latestTrusted;
   const scored=[];
   let rejected=0;
-  for(const record of items){
+  for(const entry of items){
+   const record=entry.record;
    try{
+    if(batchAudit.invalidIndices.has(entry.index))throw Error('标记的五组锁定批次不完整或不一致');
     if(!record?.ticket)throw Error('选号记录缺少组合');
     const t=validateTicket(record.ticket.front.join(' '),record.ticket.back.join(' '));
     const saved=Date.parse(record.createdAt);
@@ -52,6 +56,6 @@ export function buildProspectiveMonitor(journal,official){
     exactTickets:draw?scored.filter(x=>x.score?.exact).length:null};
  }).sort((a,b)=>b.period.localeCompare(a.period));
  return{rows,periods:rows.length,storedTickets:journal.length,unsafeRecords:unsafe,periodsWithOfficialData:rows.filter(x=>x.officialDraw).length,
-  latestOfficialPeriod:current||null,latestCrossPageAgreement:latestTrusted,
+  latestOfficialPeriod:current||null,latestCrossPageAgreement:latestTrusted,batchIssues:batchAudit.issues,markedBatches:batchAudit.markedBatches,
   notes:'只读预测监测。官网历史期号可能只有单页来源；仅最新期在两处同一官网页面一致时有双页面校验。所有比分均为观察计算，不会自动写入正式成绩或证明事前可信时间。'};
 }
