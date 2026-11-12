@@ -24,6 +24,7 @@ on:
       - 'tests/personal-v45-prize-target.test.mjs'
       - 'tests/personal-v45-serial-overlap.test.mjs'
       - 'tests/personal-v45-number-stability.test.mjs'
+      - 'tests/personal-v45-regime-scan.test.mjs'
       - 'tests/personal-v45-ballset.test.mjs'
       - 'tests/personal-v45-exit-order.test.mjs'
       - 'tests/personal-v45-machine-endpoint.test.mjs'
@@ -71,9 +72,10 @@ jobs:
           node tests/personal-v45-prize-target.test.mjs
           node tests/personal-v45-serial-overlap.test.mjs
           node tests/personal-v45-number-stability.test.mjs
+          node tests/personal-v45-regime-scan.test.mjs
           node tests/personal-v45-ballset.test.mjs
           node tests/personal-v45-exit-order.test.mjs
           node tests/personal-v45-machine-endpoint.test.mjs
       - name: Validate module syntax
         run: |
-          for file in personal/v{38,39,40,41,42}-core.mjs personal/v38-backup.mjs personal/storage-health.mjs personal/browser-self-test.mjs personal/real-data-check.mjs personal/v31-archive-view.mjs personal/v31-app.mjs personal/period-score.mjs personal/v40-app.mjs personal/v40-preflight.mjs personal/v40-next-draw.mjs personal/v40-live-lock-gate.mjs personal/v42-official-check.mjs personal/dlt-official-core.mjs functions/api/dlt-announcements.js personal/dlt-results-core.mjs functions/api/dlt-results.js personal/dlt-archive-comparison.mjs personal/v43-monitor-core.mjs personal/v43-observation-summary.mjs personal/five-batch-audit.mjs personal/v44-random-baseline.mjs personal/v45-mechanical-bias.mjs personal/v45-prize-target.mjs personal/v45-serial-overlap.mjs personal/v45-number-stability.mjs personal/v45-ballset-core.mjs personal/v45-exit-order.mjs functions/api/dlt-machine.js; do node --check "$file"; done
+          for file in personal/v{38,39,40,41,42}-core.mjs personal/v38-backup.mjs personal/storage-health.mjs personal/browser-self-test.mjs personal/real-data-check.mjs personal/v31-archive-view.mjs personal/v31-app.mjs personal/period-score.mjs personal/v40-app.mjs personal/v40-preflight.mjs personal/v40-next-draw.mjs personal/v40-live-lock-gate.mjs personal/v42-official-check.mjs personal/dlt-official-core.mjs functions/api/dlt-announcements.js personal/dlt-results-core.mjs functions/api/dlt-results.js personal/dlt-archive-comparison.mjs personal/v43-monitor-core.mjs personal/v43-observation-summary.mjs personal/five-batch-audit.mjs personal/v44-random-baseline.mjs personal/v45-mechanical-bias.mjs personal/v45-prize-target.mjs personal/v45-serial-overlap.mjs personal/v45-number-stability.mjs personal/v45-regime-scan.mjs personal/v45-ballset-core.mjs personal/v45-exit-order.mjs functions/api/dlt-machine.js; do node --check "$file"; done
