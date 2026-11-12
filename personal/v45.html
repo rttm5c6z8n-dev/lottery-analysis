@@ -139,7 +139,7 @@ function drawNumber29(data){
 }
 function showRegime(res){
  $('regimeStatus').textContent='固定切点 '+res.cutpoints.join('、')+'（按历史从早到晚的期数位置）；共'+res.tests+
-  '项比较；多重校正后超过探索阈值 '+res.correctedSignals.length+'项。以下显示全47号较突出的结果，并列出29号最显著的时间切点。\\n'+res.note;
+  '项比较；多重校正后超过探索阈值 '+res.correctedSignals.length+'项。以下显示全47号较突出的结果，并列出29号最显著的时间切点。\n'+res.note;
  const selected=[...res.top.slice(0,8),...res.number29.slice(0,1)].filter((r,i,a)=>a.findIndex(x=>x.zone===r.zone&&x.number===r.number&&x.cut===r.cut)===i);
  $('regimeRows').replaceChildren();
  for(const item of selected){
