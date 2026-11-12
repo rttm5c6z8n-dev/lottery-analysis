@@ -48,7 +48,7 @@ async function run(){
    $('hist').append(tr);
   }
   $('runStatus').textContent='模拟完成：20,000期开奖；随机种子 '+result.seed+'；后区不同组合 '+result.distinctBackPairs+' 种。';
-  $('result').textContent='随机开奖中5注最佳前区平均命中：'+result.meanBestFront.toFixed(3)+'个\n'+(result.observed?'本期实际5注最佳前区：'+result.observed.bestFront+'个、该组后区'+result.observed.bestBack+'个\n随机开奖达到至少该前区表现的经验频率：'+(100*result.observed.empiricalTail).toFixed(2)+'%\n':'')+'5注互异组合在单期开奖中至少1注完整5+2的精确概率：'+(100*result.exactJackpotProbability).toFixed(7)+'%\n\n'+result.caveat;
+  $('result').textContent='随机开奖中5注最佳前区平均命中：'+result.meanBestFront.toFixed(3)+'个\n'+(result.observed?'本期实际5注最佳前区：'+result.observed.bestFront+'个、该组后区'+result.observed.bestBack+'个\n随机开奖达到至少该前区表现的经验频率：'+(100*result.observed.empiricalTail).toFixed(2)+'%\n':'')+'5注互异组合在单期开奖中至少1注完整5+2的精确概率：'+(100*result.exactJackpotProbability).toFixed(7)+'%\n\n'+(allowedActual?'\n\n这只是一份模型存档的历史开奖对照，不属于独立证明的事前预测。':'\n\n当前模型不满足历史截止早于开奖号、存档日期不晚于开奖日的条件，因此只显示随机基准。')+'\n\n'+result.caveat;
  }catch(e){$('runStatus').textContent='模拟失败：'+(e?.message||String(e))}
  finally{$('run').disabled=false}
 }
