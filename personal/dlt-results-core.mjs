@@ -46,7 +46,7 @@ export function parseOfficialLatestHtml(html){
 export function sameDraw(a,b){
  return !!a&&!!b&&a.period===b.period&&a.date===b.date&&a.front.join(',')===b.front.join(',')&&a.back.join(',')===b.back.join(',');
 }
-export function officialResultResponse(history,latest,checkedAt){
+export function officialResultResponse(history,latest,checkedAt,maxRecords=25){
  const records=parseOfficialHistoryHtml(history);
  if(!records.length)throw Error('历史开奖页未解析出有效的大乐透期号和7个号码，禁止猜测或沿用缓存');
  const pageLatest=latest?parseOfficialLatestHtml(latest):null;
@@ -54,7 +54,7 @@ export function officialResultResponse(history,latest,checkedAt){
  const corroborated=sameDraw(latestHistory,pageLatest);
  return{
   source:HISTORY_URL,secondarySource:LATEST_URL,checkedAt,
-  records:records.slice(0,25),
+  records:records.slice(0,Number.isInteger(maxRecords)&&maxRecords>=1&&maxRecords<=5000?maxRecords:25),
   latestPeriod:latestHistory.period,latestDate:latestHistory.date,
   crossPageAgreement:corroborated,
   secondaryPageParsed:!!pageLatest,
