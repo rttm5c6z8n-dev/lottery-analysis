@@ -19,7 +19,7 @@ export async function onRequestGet({request}){
   if(historyResult.status!=='fulfilled')throw Error('历史开奖页获取失败：'+String(historyResult.reason?.message||historyResult.reason));
   const latest=latestResult.status==='fulfilled'?latestResult.value:null;
   let data;
-  try{data=officialResultResponse(historyResult.value,latest,new Date().toISOString())}
+  try{data=officialResultResponse(historyResult.value,latest,new Date().toISOString(),url.searchParams.get('all')==='1'?5000:25)}
   catch(e){return Response.json({error:'官网历史开奖解析失败：'+e.message,code:'PARSE_ERROR',source:HISTORY_URL,records:[],crossPageAgreement:false,verifiedByIndependentPublisher:false},{status:503,headers:safeHeaders})}
   const diagnostics={historyPage:'ok',latestPage:latestResult.status==='fulfilled'?'ok':'unavailable',latestPageError:latestResult.status==='rejected'?String(latestResult.reason?.message||latestResult.reason):null,agreement:data.crossPageAgreement?'same-site-match':'unconfirmed'};
   return Response.json({...data,diagnostics},{headers:safeHeaders});
