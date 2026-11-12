@@ -1,6 +1,7 @@
 import{chooseResult,bridgeRecord,eligibleArchivedResults,buildFiveRecords,appendFiveRecords}from './v40-core.mjs';
 import{readResearchData}from './real-data-check.mjs';
 import{latestLocalHistory,describeFivePicks,preflightTarget}from './v40-preflight.mjs';
+import{proposeUpcomingDraw,applyCandidatePeriod}from './v40-next-draw.mjs';
 const $=id=>document.getElementById(id),KEY='lottery_v38_predictions';
 let results=[],busy=false;
 function status(message){$('status').textContent=message}
@@ -92,6 +93,30 @@ async function refreshOfficial(){
   out.textContent='自动查询失败：'+(e?.message||String(e))+'。请直接打开下方官方网站公告链接人工核对。';
  }finally{btn.disabled=false}
 }
+let suggested=null;
+async function nextDrawRefresh(){
+ const btn=$('nextDrawRefresh'),out=$('nextDrawStatus');
+ btn.disabled=true;$('useNextPeriod').disabled=true;suggested=null;out.textContent='正在读取官网最新开奖和推算下一常规期号……';
+ try{
+  const response=await fetch('/api/dlt-results',{cache:'no-store',headers:{Accept:'application/json'}});
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||'官方开奖接口暂不可用');
+  suggested=proposeUpcomingDraw(data,new Date().toISOString());
+  out.textContent='官网最近期号：'+suggested.latestOfficialPeriod+'（'+suggested.latestOfficialDate+'）\n下一期候选：'+suggested.candidatePeriod+'\n常规开奖日候选：'+suggested.candidateDate+'（北京时间日期）\n\n'+suggested.notice;
+  $('useNextPeriod').disabled=false;
+ }catch(e){
+  out.textContent='无法自动确认下一期：'+(e?.message||String(e))+'。请人工核实官方开奖公告，未填写任何正式锁定数据。';
+ }finally{btn.disabled=false}
+}
+function useNextPeriod(){
+ try{
+  const next=applyCandidatePeriod($('period').value,suggested);
+  $('period').value=next;$('confirmed').checked=false;
+  $('preflightStatus').textContent='候选期号'+next+'已填入，但还需独立核实正式期号、开奖时刻、来源公告；当前不能直接锁定。';
+  $('nextDrawStatus').textContent+='\n\n已将候选期号填入下方（仅期号），未自动填写开奖时间或证明链接。';
+  $('useNextPeriod').disabled=true;
+ }catch(e){$('nextDrawStatus').textContent='未填入：'+(e?.message||String(e))}
+}
 export function init(){
  $('load').onclick=load;
  $('result').onchange=updateRanks;
@@ -100,5 +125,7 @@ export function init(){
  $('saveFive').onclick=saveAll;
  $('preflight').onclick=checkPreflight;
  $('officialRefresh').onclick=refreshOfficial;
+ $('nextDrawRefresh').onclick=nextDrawRefresh;
+ $('useNextPeriod').onclick=useNextPeriod;
  load();
 }
