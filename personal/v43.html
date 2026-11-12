@@ -8,6 +8,7 @@
 <section><h2>结论边界</h2><p>这是一张研究观察表，不会把往期开奖比对自动算成“事前预测成功”。本机保存时间可以修改，不能作为独立时间公证；从模型存档推导出的历史对照也不会自动纳入V3.9正式成绩。</p><p>尚未锁定未来期号时，显示0期预测属于正常状态。可前往 <a href="./v40.html">V4.0</a>，先核实未来目标期号与官方计划开奖时间，再留档完整5组。</p></section>
 </main><script type="module">
 import{buildProspectiveMonitor}from './v43-monitor-core.mjs';
+import{inspectLockProof}from './v40-lock-proof.mjs';
 import{summarizeObservations}from './v43-observation-summary.mjs';
 const $=id=>document.getElementById(id);
 function readJournal(){const raw=localStorage.getItem('lottery_v38_predictions');if(raw===null)return [];const parsed=JSON.parse(raw);if(!Array.isArray(parsed))throw Error('本机预测留档格式异常');return parsed}
@@ -18,11 +19,24 @@ async function refresh(){
   const journal=readJournal();
   const res=await fetch('/api/dlt-results',{cache:'no-store',headers:{Accept:'application/json'}});
   const data=await res.json();if(!res.ok)throw Error(data.error||'官方历史开奖接口不可用');
-  const report=buildProspectiveMonitor(journal,data);
+  const proofGroups=new Map();
+  for(const row of journal){
+   if(!row?.lockProof)continue;
+   const items=proofGroups.get(row.period)||[];items.push(row);proofGroups.set(row.period,items);
+  }
+  const invalidProofPeriods=new Set();
+  for(const [period,records]of proofGroups){
+   // The entire period, not just matching marked rows, is checked.
+   const all=journal.filter(row=>row?.period===period);
+   const check=await inspectLockProof(all);
+   if(check.valid!==true)invalidProofPeriods.add(period);
+  }
+  const report=buildProspectiveMonitor(journal,data,invalidProofPeriods);
   $('status').textContent='官网最新识别 '+report.latestOfficialPeriod+' 期；双页面一致：'+(report.latestCrossPageAgreement?'是':'未确认')+'。这是一份只读观察报告。';
   const sum=document.createElement('p');
   sum.textContent='本机留档 '+report.storedTickets+' 注、'+report.periods+' 期；有官网历史开奖可比对 '+report.periodsWithOfficialData+' 期；格式异常 '+report.unsafeRecords+' 条。';
   $('summary').append(sum);
+  if(report.invalidProofPeriods?.length){const warning=document.createElement('p');warning.textContent='SHA-256锁定指纹异常：'+report.invalidProofPeriods.join('、')+'期已整期排除；请到V4.0核查原始凭证。';$('summary').append(warning)}
   if(report.batchIssues?.length){const warning=document.createElement('p');warning.textContent='批次完整性警告：'+report.batchIssues.length+'项；涉及的异常批次已排除，未计入有效注数。';$('summary').append(warning)}
   const observation=summarizeObservations(report,new Date().toISOString());
   const notes=document.createElement('p');
