@@ -1,0 +1,107 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V4.6 近期数据权重挑战赛</title>
+<style>
+body{background:#101827;color:#eaf1ff;margin:0;font:15px/1.75 system-ui}main{max-width:900px;margin:auto;padding:20px}nav a,a{color:#9bc8ff}
+section{background:#1e2b43;border:1px solid #425674;border-radius:16px;padding:19px;margin:17px 0}button{padding:11px 16px;background:#91b7ff;color:#10233b;border:0;border-radius:9px;font:inherit;margin:4px 6px 4px 0}
+button:disabled{opacity:.5}h1{font-size:28px;line-height:1.3}h2{font-size:21px}pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}table{border-collapse:collapse;width:100%;min-width:490px}th,td{padding:9px 6px;text-align:left;border-bottom:1px solid #495d7d}td{font-variant-numeric:tabular-nums}.scroll{overflow:auto}small{color:#b7c6db}
+textarea{display:block;box-sizing:border-box;width:100%;border:1px solid #5f7796;background:#111c30;color:#edf4ff;border-radius:10px;font:14px/1.7 ui-monospace,monospace;padding:13px;resize:vertical}
+</style></head><body><main><nav><a href="./v45.html">← V4.5 物理偏差研究</a> · <a href="./v40.html">V4.0 事前锁定</a></nav>
+<h1>V4.6 · 近期数据权重挑战赛</h1>
+<p>我们的2946期研究发现：前区29号早期明显偏多，近期优势并不稳定。那么，<strong>让较新的期开奖拥有更高权重</strong>，是否比原有600期模型更能预测后续开奖？</p>
+<section><h2>固定的4种对照方法</h2>
+<p>公平随机模型、原600期固定窗口模型、90期半衰期模型和300期半衰期模型。所有模型在每期开奖时只能看到以前600期的号码。</p>
+<p><strong>历史测试400期：</strong>前200期选择平均评分最高的方法，后200期只用于验证已选方法；不能用后200期重新调参。</p>
+<button id="run" type="button">运行真实2946期模型挑战</button><button id="copy" type="button" disabled>复制研究报告</button>
+<p id="status" role="status">尚未运行；不展示未经验证的预测优势。</p><pre id="source"></pre>
+</section>
+<section><h2>四种方法的评分比较</h2>
+<div class="scroll"><table><thead><tr><th>模型</th><th>前200期选型</th><th>后200期检验</th><th>后200期近似95%区间</th></tr></thead><tbody id="modelRows"></tbody></table></div>
+<small>表中均为每期开奖“相对公平随机模型”的完整5+2对数概率评分增量。正值仅代表该批数据上的对数评分更好，并不是中奖率的直接倍率。</small>
+</section>
+<section><h2>选型规则与结论</h2><pre id="conclusion">尚无真实历史计算结果。</pre>
+<p><small>即使固定了200+200分割，此挑战赛仍是在我们已分析过这些历史开奖后设计的，不能将“后200期”冒充真正从未看过的独立数据。未来开奖才是独立检验。</small></p>
+</section>
+<section><h2>近期权重观察（不等于中奖概率）</h2><pre id="weights">尚未运行。</pre>
+<small>权重大于1仅表示模型对某个号码的偏好高于均匀抽取基准；它不证明29号或07号下一期更可能出现。</small>
+</section>
+<section><h2>一、二等奖的研究边界</h2>
+<p>一等奖要5+2全中，二等奖要5+1恰好命中。我们优先检查“完整开奖结果概率评分”是否有可重复优势，再研究具体号码。若验证没通过，软件应如实拒绝宣称可以提高一、二等奖中奖概率。</p>
+<p>公平开奖下，5注前区互不相同的理论覆盖：一等奖约1/428.5万，二等奖约1/21.43万。增加复杂模型不会自动改变这些概率。</p>
+</section>
+<section><h2>研究结果复制区</h2>
+<p>运行完成后会显示摘要，手机可以点复制按钮，或直接长按下面的文本框复制。</p><textarea id="report" rows="14" readonly placeholder="运行真实历史检验后显示完整研究报告"></textarea>
+</section>
+</main><script type="module">
+import{readResearchData,verifySnapshotFingerprints}from './real-data-check.mjs';
+import{valid}from './v31-core.mjs';
+import{compareDecayModels}from './v46-decay-challenge.mjs';
+const $=id=>document.getElementById(id);
+let report='';
+async function history(){
+ const store=await readResearchData(globalThis.indexedDB);
+ const candidates=(store.snapshots||[]).filter(x=>Array.isArray(x.rows)&&x.rows.length>=1000&&x.sourceHash)
+  .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+ if(!candidates.length)throw Error('找不到SHA-256来源指纹完整的V3.1历史快照，请检查原有V3.1数据，不需要重新训练');
+ for(const snapshot of candidates){
+  const check=await verifySnapshotFingerprints([snapshot]);
+  if(!check.unsupported&&check.checked===1&&check.matched===1&&snapshot.rows.every(valid))
+   return{rows:snapshot.rows,source:'V3.1 IndexedDB快照（SHA-256复核通过）'};
+ }
+ throw Error('历史快照指纹校验未通过；为避免使用不可信数据已停止');
+}
+const fixed=x=>Number.isFinite(x)?(x>=0?'+':'')+x.toFixed(7):'无效';
+const interval=x=>x.map(fixed).join(' 至 ');
+function render(result){
+ $('modelRows').replaceChildren();
+ for(const m of result.models){
+  const row=document.createElement('tr');
+  const vals=[m.label,fixed(m.first200.mean),fixed(m.last200.mean),interval(m.last200.interval95)];
+  for(const val of vals){const cell=document.createElement('td');cell.textContent=val;row.append(cell)}
+  $('modelRows').append(row);
+ }
+ $('conclusion').textContent='前200期最后一期：'+result.selectionEndPeriod+
+  '\n后200期范围：'+result.validationStartPeriod+' — '+result.periodEnd+
+  '\n提前固定选中的方法：'+result.selectedLabel+
+  '\n它在后200期的评分优势：'+fixed(result.late200Advantage)+
+  '\n近似95%区间：'+interval(result.late200Interval95)+
+  '\n是否出现初步正向探索信号：'+(result.exploratoryPassed?'有（仍必须接受未来开奖验证）':'没有，不支持宣称能提高中奖概率')+
+  '\n\n'+result.disclaimer;
+ $('weights').textContent=result.latestBiasWeights.map(x=>x.id+
+  '：前区29号权重 '+x.front29Weight.toFixed(4)+
+  '，后区07号权重 '+x.back07Weight.toFixed(4)).join('\n');
+ report=[
+  'V4.6 近期数据权重挑战赛',
+  '数据：2946期V3.1历史快照；实际条数以页面显示为准。',
+  '测试范围：'+result.periodStart+' 至 '+result.periodEnd,
+  '选型200期结束：'+result.selectionEndPeriod+'；验证200期从'+result.validationStartPeriod+'开始',
+  ...result.models.map(x=>x.label+'：前200 '+fixed(x.first200.mean)+
+    '，后200 '+fixed(x.last200.mean)+'，近似区间 '+interval(x.last200.interval95)),
+  '前200期选中：'+result.selectedLabel,
+  '后200期平均评分差：'+fixed(result.late200Advantage),
+  '初步探索信号：'+(result.exploratoryPassed?'有，未来待验证':'没有'),
+  ...result.latestBiasWeights.map(x=>x.id+' 前区29权重 '+x.front29Weight.toFixed(4)+
+   '；后区07权重 '+x.back07Weight.toFixed(4)),
+  result.disclaimer
+ ].join('\n');
+ $('report').value=report;$('copy').disabled=false;
+}
+async function run(){
+ const btn=$('run');btn.disabled=true;$('copy').disabled=true;report='';
+ $('report').value='';$('modelRows').replaceChildren();$('source').textContent='';
+ $('weights').textContent='正在计算……';$('conclusion').textContent='正在检查……';
+ $('status').textContent='正在校验历史快照并逐期开奖比较4种方法……';
+ try{
+  const h=await history();$('source').textContent=h.source+'；共'+h.rows.length+'期；历史截止'+h.rows.at(-1).period;
+  await new Promise(resolve=>setTimeout(resolve,20));
+  const result=compareDecayModels(h.rows);
+  render(result);
+  $('status').textContent='完成：'+result.testDraws+'期滚动历史研究，原始号码、预测留档和本机研究存储没有修改。';
+ }catch(e){$('status').textContent='检验未完成：'+(e?.message||String(e));$('conclusion').textContent='无法得出可靠研究结论，已停止。';$('weights').textContent='没有结果。'}
+ finally{btn.disabled=false}
+}
+$('run').onclick=run;
+$('copy').onclick=async()=>{
+ if(!report)return;
+ try{if(!navigator.clipboard?.writeText)throw Error('浏览器剪贴板不支持');await navigator.clipboard.writeText(report);$('status').textContent='报告已复制，可直接发到聊天中。';}
+ catch(e){$('report').focus();$('report').select();$('status').textContent='自动复制不可用，请长按下方完整报告复制：'+e.message}
+};
+</script></body></html>
