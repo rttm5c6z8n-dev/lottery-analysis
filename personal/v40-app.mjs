@@ -3,6 +3,7 @@ import{readResearchData}from './real-data-check.mjs';
 import{latestLocalHistory,describeFivePicks,preflightTarget}from './v40-preflight.mjs';
 import{proposeUpcomingDraw,applyCandidatePeriod}from './v40-next-draw.mjs';
 import{verifyLiveLockGate}from './v40-live-lock-gate.mjs';
+import{stampLockedRecords,inspectLockProof,exportLockEvidence}from './v40-lock-proof.mjs';
 const $=id=>document.getElementById(id),KEY='lottery_v38_predictions';
 let results=[],busy=false;
 function status(message){$('status').textContent=message}
@@ -82,15 +83,19 @@ async function lockedSave(all){
    const batch=buildFiveRecords({results,resultId:inputs.resultId,period:inputs.period,now,
     drawAt:inputs.drawAt,sourceUrl:inputs.sourceUrl});
    const stamped=batch.map(x=>({...x,liveGate:gate}));
-   const next=appendFiveRecords(original,stamped);
+   const locked=await stampLockedRecords(stamped);
+   if(!sameInputs(inputs))throw Error('指纹生成期间表单发生变化，已取消保存');
+   const next=appendFiveRecords(original,locked.records);
    localStorage.setItem(KEY,JSON.stringify(next));
-   $('saved').textContent='已一次性锁定完整5组。锁定时重新读取官网最近已开奖 '+gate.latestPublished+
+   $('saved').textContent='已一次性锁定完整5组；SHA-256指纹：'+locked.proof.digest+'。锁定时重新读取官网最近已开奖 '+gate.latestPublished+
     ' 期；仅为本机候选留档，不是独立可信时间公证。';
   }else{
    const chosen=chooseResult(results,inputs.resultId,inputs.rank);
    const item=bridgeRecord({result:chosen,period:inputs.period,now,drawAt:inputs.drawAt,sourceUrl:inputs.sourceUrl});
-   localStorage.setItem(KEY,JSON.stringify([...original,{...item,liveGate:gate}]));
-   $('saved').textContent='已保存该期单组。锁定时官网最近已开奖 '+gate.latestPublished+
+   const locked=await stampLockedRecords([{...item,liveGate:gate}]);
+   if(!sameInputs(inputs))throw Error('指纹生成期间表单发生变化，已取消保存');
+   localStorage.setItem(KEY,JSON.stringify([...original,...locked.records]));
+   $('saved').textContent='已保存该期单组；SHA-256指纹：'+locked.proof.digest+'。锁定时官网最近已开奖 '+gate.latestPublished+
     ' 期；该期之后不能再补充其他组。';
   }
  }catch(e){$('saved').textContent='锁定未执行，原始数据未修改：'+(e?.message||String(e))}
@@ -98,6 +103,37 @@ async function lockedSave(all){
 }
 function saveAll(){return lockedSave(true)}
 function saveOne(){return lockedSave(false)}
+function currentLockedPeriod(){
+ const period=$('period').value.trim();
+ if(!/^\d{5}$/.test(period))throw Error('请先填写或选中已锁定的五位期号');
+ const rows=readJournal().filter(x=>x.period===period);
+ if(!rows.length)throw Error('该期没有正式锁定留档；V3.1研究存档不等于锁定证明');
+ return rows;
+}
+async function inspectCurrentProof(){
+ const out=$('proofStatus');
+ try{
+  const records=currentLockedPeriod();
+  const result=await inspectLockProof(records);
+  out.textContent=result.status==='valid'?'本机SHA-256指纹校验一致：'+result.digest+'（仅说明当前内容与留档指纹一致，无法证明何时保存）':
+   result.status==='legacy'?'该期为旧单组留档，没有SHA-256指纹，不能追补为已公证记录。':
+   '指纹检查失败：'+result.reason;
+  return result;
+ }catch(e){out.textContent='指纹检查未完成：'+e.message;return{status:'error'}}
+}
+async function downloadLockEvidence(){
+ const status=$('proofStatus');
+ try{
+  const rows=currentLockedPeriod(),check=await inspectLockProof(rows);
+  if(!check.valid)throw Error('当前留档指纹不一致或为旧格式，禁止导出证明文件');
+  const evidence=exportLockEvidence(rows);
+  const blob=new Blob([JSON.stringify(evidence,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),anchor=document.createElement('a');
+  anchor.href=url;anchor.download='lottery-lock-'+rows[0].period+'-sha256.json';
+  anchor.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
+  status.textContent='已请求导出第'+rows[0].period+'期锁定凭证。请在开奖前保存到独立位置；本机哈希不是第三方公证。';
+ }catch(e){status.textContent='导出失败：'+e.message}
+}
 async function refreshOfficial(){
  const btn=$('officialRefresh'),out=$('officialStatus');btn.disabled=true;out.textContent='正在尝试读取官网公告标题……';
  try{
@@ -153,6 +189,8 @@ export function init(){
  $('officialRefresh').onclick=refreshOfficial;
  $('nextDrawRefresh').onclick=nextDrawRefresh;
  $('useNextPeriod').onclick=useNextPeriod;
+ $('proofVerify').onclick=inspectCurrentProof;
+ $('proofExport').onclick=downloadLockEvidence;
  load();
  nextDrawRefresh();
 }
