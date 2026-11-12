@@ -68,7 +68,9 @@ function sortedModel(group){
  if(!/^\d{5}$/.test(period||'')||ordered.some(r=>r.period!==period||r.createdAt!==createdAt))throw Error('模型锁定期号或保存时间不一致');
  const planned=ordered[0].targetEvidence?.plannedDrawAt;
  if(!Number.isFinite(Date.parse(planned))||!Number.isFinite(Date.parse(createdAt))||Date.parse(createdAt)>=Date.parse(planned))throw Error('没有有效的事前计划开奖时间');
- if(ordered.some(r=>r.targetEvidence?.plannedDrawAt!==planned||r.source?.type!=='v31-result'||Number(r.source?.throughPeriod)>=Number(period)))throw Error('模型来源或截止期号不符合事前要求');
+ if(ordered.some(r=>r.targetEvidence?.plannedDrawAt!==planned||r.source?.type!=='v31-result'||Number(r.source?.throughPeriod)>=Number(period)||
+   !Number.isFinite(Date.parse(r.source?.generatedAt))||Date.parse(r.source.generatedAt)>Date.parse(createdAt)||
+   !r.targetEvidence?.sourceUrl?.startsWith('https://')))throw Error('模型来源、生成时间、公告或截止期号不符合事前要求');
  const tickets=ordered.map(r=>validateTicket(r.ticket.front.join(' '),r.ticket.back.join(' ')));
  if(new Set(tickets.map(t=>t.front.join(','))).size!==5)throw Error('模型5注前区组合不互异，不能和5注随机对照做等覆盖比较');
  return{ordered,period,modelCreatedAt:createdAt,plannedDrawAt:planned,tickets};
