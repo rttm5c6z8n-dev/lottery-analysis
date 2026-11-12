@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import{proposeUpcomingDraw,applyCandidatePeriod}from '../personal/v40-next-draw.mjs';
+const draw={period:'26129',date:'2026-11-11',front:[2,12,14,17,33],back:[7,8]};
+const payload={records:[draw],latestPeriod:'26129',latestDate:'2026-11-11',checkedAt:'2026-11-12T00:00:00Z',crossPageAgreement:true,source:'https://www.gstc.org.cn/wanfa/dlt_history',diagnostics:{agreement:'same-site-match'}};
+const candidate=proposeUpcomingDraw(payload,'2026-11-12T00:30:00Z');
+assert.equal(candidate.candidatePeriod,'26130');
+assert.equal(candidate.candidateDate,'2026-11-14');
+assert.equal(candidate.officialNextIssueConfirmed,false);
+assert.equal(candidate.officialScheduleConfirmed,false);
+assert.equal(applyCandidatePeriod('',candidate),'26130');
+assert.throws(()=>applyCandidatePeriod('26132',candidate),/禁止自动覆盖/);
+assert.throws(()=>proposeUpcomingDraw({...payload,crossPageAgreement:false},'2026-11-12T00:30:00Z'),/一致/);
+assert.throws(()=>proposeUpcomingDraw(payload,'2026-11-15T00:30:00Z'),/已经过去/);
+assert.throws(()=>proposeUpcomingDraw(payload,'2026-11-25T00:30:00Z'),/官网最新|过期/);
+assert.throws(()=>applyCandidatePeriod('',{candidatePeriod:'26130',officialNextIssueConfirmed:true}),/缺少/);
+console.log('V4.0 tentative next issue calendar and safe fill tests passed');
