@@ -13,7 +13,7 @@ assert.equal(verified.officialScheduleConfirmed,false);
 assert.throws(()=>verifyLiveLockGate({...input,period:'26129'}),/不是官网最新开奖/);
 assert.throws(()=>verifyLiveLockGate({...input,period:'26131'}),/不是官网最新开奖/);
 assert.throws(()=>verifyLiveLockGate({...input,payload:{...payload,latestPeriod:'26130',latestDate:'2026-11-14',
- records:[{...draw,period:'26130',date:'2026-11-14'}]}}),/期号和历史记录不一致|不是官网最新开奖/);
+ records:[{...draw,period:'26130',date:'2026-11-14'}]}}),/晚于当前设备日期|期号和历史记录不一致|不是官网最新开奖/);
 assert.throws(()=>verifyLiveLockGate({...input,payload:{...payload,crossPageAgreement:false}}),/未获同站双页面/);
 assert.throws(()=>verifyLiveLockGate({...input,payload:{...payload,checkedAt:'2026-11-11T23:50:00Z'}}),/刚刚/);
 assert.throws(()=>verifyLiveLockGate({...input,payload:{...payload,checkedAt:'2026-11-12T00:03:00Z'}}),/刚刚/);
