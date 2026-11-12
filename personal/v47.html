@@ -28,13 +28,21 @@
 <button id="export" type="button" disabled>导出当前期配对凭证JSON</button><button id="copy" type="button" disabled>复制本次实验摘要</button>
 <textarea id="summary" rows="12" readonly placeholder="登记随机对照或比较后，会在这里显示完整摘要，长按可复制。"></textarea>
 <p><small>本机与服务器可能被修改。只有可信的外部时间证明才能更强地证明这些号码在开奖前固定；不要把本地记录当成第三方公证。</small></p></section>
+<section><h2>5. 读取备份JSON（只读，不覆盖历史）</h2>
+<p>即使更换手机或浏览器，也可以选择先前导出的 <code>dlt-paired-control-期号.json</code> 文件，验证SHA-256摘要与随机种子重放，并在开奖后单独核对这份凭证。文件仅在本机浏览器中读取，不会自动导入、恢复或改写任何正式留档。</p>
+<input id="backupFile" type="file" accept=".json,application/json" aria-label="选择已导出的V4.7配对凭证JSON">
+<button id="verifyBackup" type="button">核验备份JSON的完整性</button>
+<button id="compareBackup" type="button" disabled>开奖后核对这份备份的成绩</button>
+<pre id="backupStatus" role="status">尚未选择文件。</pre>
+<small>此项只能核验文件内部自洽性。如果缺少原始V4.0留档，不能证明模型真实锁定时间；上传后的对比也不计入本机正式多期统计。</small>
+</section>
 </main><script type="module">
-import{verifyLockedModel,createPairRecord,verifyPairRecord,evaluatePair,summarizePairedRounds,exactFairFrontBenchmark}from './v47-paired-control.mjs';
+import{verifyLockedModel,createPairRecord,verifyPairRecord,evaluatePair,summarizePairedRounds,exactFairFrontBenchmark,verifyExportedPairStandalone}from './v47-paired-control.mjs';
 import{verifyLiveLockGate}from './v40-live-lock-gate.mjs';
 import{validateTicket}from './v38-core.mjs';
 const JOURNAL_KEY='lottery_v38_predictions',PAIR_KEY='lottery_v47_paired_controls';
 const $=id=>document.getElementById(id),pad=n=>String(n).padStart(2,'0');
-let validGroups=new Map(),outcomeText='';
+let validGroups=new Map(),outcomeText='',importedBackup=null;
 function journal(){
  const raw=localStorage.getItem(JOURNAL_KEY);
  if(raw===null)return[];
@@ -213,6 +221,57 @@ async function copy(){
  try{await navigator.clipboard.writeText(txt);$('compareStatus').textContent='研究摘要已复制。'}
  catch(e){$('summary').focus();$('summary').select();$('compareStatus').textContent='自动复制不可用，已选中下方文字，长按即可复制。'}
 }
+async function verifyBackupFile(){
+ const out=$('backupStatus'),btn=$('verifyBackup');importedBackup=null;$('compareBackup').disabled=true;
+ btn.disabled=true;out.textContent='正在核验文件摘要、号码和原始随机种子……';
+ try{
+  const file=$('backupFile').files?.[0];
+  if(!file)throw Error('请先从手机文件中选择导出的JSON');
+  if(file.size>512000)throw Error('文件异常大，请确认是原始V4.7 JSON凭证');
+  const record=JSON.parse(await file.text());
+  const check=await verifyExportedPairStandalone(record);
+  let linkage='当前设备没有可核验的对应V4.0正式留档，未验证模型来源与事前锁定时间。';
+  const original=modelGroups().get(check.period);
+  if(original){
+   try{const locked=await verifyLockedModel(original);await verifyPairRecord(record,locked);
+    linkage='已与本机V4.0完整5注SHA-256记录核验一致（仍不是可信第三方时间证明）。';
+   }catch(e){linkage='本机V4.0来源校验没有通过：'+e.message+'；不代表文件可作为正式配对凭证。'}
+  }
+  importedBackup=record;
+  out.textContent='第'+check.period+'期 · 文件内部一致性验证通过\n摘要：'+check.digest+'\n\n'+linkage+
+   '\n\n模型5注：\n'+pickText(record.payload.modelTickets)+'\n\n随机5注：\n'+pickText(record.payload.controlTickets)+
+   '\n\n'+check.notice;
+  $('compareBackup').disabled=false;
+ }catch(e){out.textContent='备份校验失败：'+(e?.message||String(e))+'。本机原始记录未修改。'}
+ finally{btn.disabled=false}
+}
+async function compareBackupFile(){
+ const out=$('backupStatus'),btn=$('compareBackup');
+ btn.disabled=true;
+ try{
+  if(!importedBackup)throw Error('请先核验JSON文件');
+  const check=await verifyExportedPairStandalone(importedBackup);
+  const official=await requestOfficial(),period=check.period;
+  let draw=null;
+  for(const r of official.records||[]){
+   if(String(r.period)!==period)continue;
+   const candidate=validateTicket(r.front.join(' '),r.back.join(' '));
+   if(candidate.front.join(',')!==r.front.join(',')||candidate.back.join(',')!==r.back.join(','))continue;
+   draw=candidate;break;
+  }
+  if(!draw){out.textContent+='\n\n第'+period+'期尚未从官网接口取得完整开奖结果，不计成绩。';return}
+  const score=evaluatePair(importedBackup,draw);
+  out.textContent+='\n\n【官网接口查询结果】第'+period+'期：\n开奖号码：'+pickText([draw])+
+   '\n模型最佳前区：'+score.model.bestFront+'（对应最高后区'+score.model.bestBackAtBestFront+'）'+
+   '\n随机最佳前区：'+score.control.bestFront+'（对应最高后区'+score.control.bestBackAtBestFront+'）'+
+   '\n前区命中差：'+(score.bestFrontDelta>=0?'+':'')+score.bestFrontDelta+
+   '\n'+score.verdict+'\n仅做凭证文件的独立查看，不写入多期成绩；不代表第三方事前公证。';
+ }catch(e){out.textContent+='\n\n备份开奖核对失败：'+(e?.message||String(e))}
+ finally{btn.disabled=!importedBackup}
+}
+$('backupFile').onchange=()=>{importedBackup=null;$('compareBackup').disabled=true;$('backupStatus').textContent='已选择文件，请点击核验备份JSON的完整性。'};
+$('verifyBackup').onclick=verifyBackupFile;
+$('compareBackup').onclick=compareBackupFile;
 $('refresh').onclick=refresh;$('period').onchange=updateView;$('create').onclick=create;$('compare').onclick=compare;
 $('export').onclick=exportEvidence;$('baseline').onclick=calculateBaseline;$('copy').onclick=copy;
 refresh();
