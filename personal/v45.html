@@ -122,14 +122,14 @@ function drawNumber29(data){
  const discovered=data.discoveredNumberForwardScore,selected=data.pretestSelectedForwardScore;
  $('number29Status').textContent='全历史29号：'+data.all.hits+'/'+data.all.draws+
   '，最近400期29号：'+data.recent.hits+'/400（公平期望'+data.recent.expectedHits.toFixed(1)+'）。'+
-  '\\n29号滚动单号码评分（仅事后探索）：'+discovered.meanLogAdvantage.toFixed(6)+' nats/期；近似区间 ['+
+  '\n29号滚动单号码评分（仅事后探索）：'+discovered.meanLogAdvantage.toFixed(6)+' nats/期；近似区间 ['+
   discovered.interval95Approx.map(x=>x.toFixed(6)).join('，')+']；前后200期：'+
   discovered.firstHalfMean.toFixed(6)+'、'+discovered.secondHalfMean.toFixed(6)+
-  '\\n在历史切点 '+data.selectedAtPeriod+' 前，仅根据此前600期选出的最热号码：'+
+  '\n在历史切点 '+data.selectedAtPeriod+' 前，仅根据此前600期选出的最热号码：'+
   String(data.selectedBeforeHoldout.number).padStart(2,'0')+'；它在后续400期的滚动单号码评分：'+
   selected.meanLogAdvantage.toFixed(6)+'；近似区间 ['+
   selected.interval95Approx.map(x=>x.toFixed(6)).join('，')+']。'+
-  '\\n'+data.interpretation;
+  '\n'+data.interpretation;
 }
 async function run(){
  const btn=$('run');btn.disabled=true;
