@@ -42,8 +42,9 @@ export async function onRequestPost(context){
   const normalized=validateReceiptRequest(input,latest,new Date().toISOString());
   const id=crypto.randomUUID(),receivedAt=new Date().toISOString();
   if(Date.parse(receivedAt)>=Date.parse(normalized.plannedDrawAt))throw Error('数据库写入前开奖时间已到，已拒绝提交');
-  await db.prepare('INSERT INTO lock_receipts (id,period,digest,scope,planned_draw_at,received_at,latest_official_period,latest_official_date,source_url) VALUES (?,?,?,?,?,?,?,?,?)')
+  const written=await db.prepare('INSERT INTO lock_receipts (id,period,digest,scope,planned_draw_at,received_at,latest_official_period,latest_official_date,source_url) VALUES (?,?,?,?,?,?,?,?,?)')
    .bind(id,normalized.period,normalized.digest,normalized.scope,normalized.plannedDrawAt,receivedAt,normalized.latestOfficialPeriod,normalized.latestOfficialDate,HISTORY_URL).run();
+  if(written?.success!==true)throw Error('D1没有确认数据库写入成功，拒绝签发回执');
   return respond({receipt:validateReceiptData({id,period:normalized.period,digest:normalized.digest,scope:normalized.scope,
    planned_draw_at:normalized.plannedDrawAt,received_at:receivedAt,latest_official_period:normalized.latestOfficialPeriod,
    latest_official_date:normalized.latestOfficialDate,source_url:HISTORY_URL}),persisted:true,thirdPartyNotarization:false},201);
