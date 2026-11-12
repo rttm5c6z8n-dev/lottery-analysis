@@ -135,3 +135,44 @@ export function summarizePairedRounds(rounds){
   meanBestFrontDifference:valid.length?valid.reduce((s,r)=>s+r.bestFrontDelta,0)/valid.length:null,
   notice:'同期开奖中两组号码相关，不能直接假设每一期模型胜率应是50%，也不能把5注当5次独立试验。'};
 }
+
+
+// Exact combinatorial calibration for the *pre-registered* best-front metric.
+// No historical or future draw is used: enumerate all C(35,5)=324632
+// equally likely front outcomes for these two FIXED 5-ticket sets.
+function maskForFairFront(front){
+ if(!Array.isArray(front)||front.length!==5||front.some(n=>!Number.isInteger(n)||n<1||n>35)||
+  new Set(front).size!==5)throw Error('公平基准的前区组合不合法');
+ let lo=0,hi=0;
+ for(const n of front){if(n<=32)lo|=1<<(n-1);else hi|=1<<(n-33)}
+ return{lo,hi};
+}
+function popCount32(n){
+ n=n-((n>>>1)&0x55555555);
+ n=(n&0x33333333)+((n>>>2)&0x33333333);
+ return (((n+(n>>>4))&0x0f0f0f0f)*0x01010101)>>>24;
+}
+export function exactFairFrontBenchmark(modelTickets,controlTickets){
+ if(!Array.isArray(modelTickets)||modelTickets.length!==5||
+  !Array.isArray(controlTickets)||controlTickets.length!==5)throw Error('公平基准需模型与随机各5注');
+ const model=modelTickets.map(t=>maskForFairFront(t.front));
+ const control=controlTickets.map(t=>maskForFairFront(t.front));
+ const bits=Array.from({length:36},(_,n)=>n===0?{lo:0,hi:0}:n<=32?{lo:1<<(n-1),hi:0}:{lo:0,hi:1<<(n-33)});
+ let total=0,modelWins=0,controlWins=0,ties=0,modelSum=0,controlSum=0;
+ for(let a=1;a<=31;a++)for(let b=a+1;b<=32;b++)for(let c=b+1;c<=33;c++)
+ for(let d=c+1;d<=34;d++)for(let e=d+1;e<=35;e++){
+  const lo=bits[a].lo|bits[b].lo|bits[c].lo|bits[d].lo|bits[e].lo;
+  const hi=bits[a].hi|bits[b].hi|bits[c].hi|bits[d].hi|bits[e].hi;
+  let mBest=0,cBest=0;
+  for(const t of model){const hits=popCount32(t.lo&lo)+popCount32(t.hi&hi);if(hits>mBest)mBest=hits}
+  for(const t of control){const hits=popCount32(t.lo&lo)+popCount32(t.hi&hi);if(hits>cBest)cBest=hits}
+  total++;modelSum+=mBest;controlSum+=cBest;
+  if(mBest>cBest)modelWins++;else if(mBest<cBest)controlWins++;else ties++;
+ }
+ if(total!==324632)throw Error('公平基准的组合枚举不完整');
+ return{total,modelWins,controlWins,ties,
+  modelWinProbability:modelWins/total,controlWinProbability:controlWins/total,tieProbability:ties/total,
+  expectedModelBest:modelSum/total,expectedControlBest:controlSum/total,
+  expectedDelta:(modelSum-controlSum)/total,
+  notice:'本结果是所有公平独立开奖前区组合的精确结构基准，不使用真实开奖结果。原先已预注册的最佳前区命中主指标保持不变；此补充校准不能事后改写原始实验规则，也不能证明预测能力。'};
+}
