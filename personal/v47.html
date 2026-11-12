@@ -18,6 +18,7 @@
 <section><h2>3. 同期开奖后对照</h2>
 <button id="compare" type="button" disabled>查询官网并比较所有已登记期号</button>
 <p id="compareStatus" role="status">未查询。</p><pre id="comparisons"></pre><h3>开奖后逐期详细报告</h3><pre id="detailedReports">尚无已核实的开奖结果。</pre><h3>累计实际成绩与公平基准</h3><pre id="calibratedSummary">尚无可统计的已开奖期号。</pre>
+<button id="exportReport" type="button" disabled>导出开奖后详细对照报告 TXT</button>
 <p><small>主指标是每期5注中的最佳前区命中数；另记录一、二等奖实际命中与最佳前区对应的后区表现。只是观察指标，不能承诺提高中奖概率。</small></p></section>
 <section><h2>3A. 公平随机结构基准（开奖前即可计算）</h2>
 <p>在不使用开奖结果的前提下，精确遍历全部324632种前区开奖组合，检验当前模型5注与随机5注在<strong>原先预注册的“每期最佳前区命中”指标</strong>上，是否天然有结构差异。结果只是公平开奖下的理论基准，不改变已锁定号码和实验规则。</p>
@@ -42,7 +43,7 @@ import{verifyLiveLockGate}from './v40-live-lock-gate.mjs';
 import{validateTicket}from './v38-core.mjs';
 const JOURNAL_KEY='lottery_v38_predictions',PAIR_KEY='lottery_v47_paired_controls';
 const $=id=>document.getElementById(id),pad=n=>String(n).padStart(2,'0');
-let validGroups=new Map(),outcomeText='',importedBackup=null;const benchmarkCache=new Map();
+let validGroups=new Map(),outcomeText='',importedBackup=null,latestReport='';const benchmarkCache=new Map();
 function journal(){
  const raw=localStorage.getItem(JOURNAL_KEY);
  if(raw===null)return[];
@@ -79,6 +80,7 @@ function updateView(){
  $('export').disabled=!saved;
  $('baseline').disabled=!v||!saved;
  $('copy').disabled=!outcomeText;
+ $('exportReport').disabled=!latestReport;
 }
 async function refresh(){
  $('refresh').disabled=true;$('loadStatus').textContent='正在检查V4.0完整5注和本机SHA-256……';
@@ -139,7 +141,7 @@ async function create(){
  finally{btn.disabled=!validGroups.has(selected())||Object.hasOwn(pairs(),selected())}
 }
 async function compare(){
- const btn=$('compare');btn.disabled=true;
+ const btn=$('compare');btn.disabled=true;latestReport='';$('exportReport').disabled=true;
  $('compareStatus').textContent='读取官网开奖、校验每期配对指纹……';
  try{
   const official=await requestOfficial(),all=pairs(),groups=modelGroups(),lines=[],evaluated=[],reports=[],calibrated=[];
@@ -194,9 +196,25 @@ async function compare(){
   $('compareStatus').textContent='只读对照完成；未修改任何正式留档或观察数据。';
   outcomeText=$('comparisons').textContent+'\n\n'+$('calibratedSummary').textContent+'\n本地随机对照没有独立可信时间戳；不能单独作为事前预测优势证据。';
   $('summary').value=outcomeText;
+  if(evaluated.length){
+   latestReport='V4.7 · 大乐透模型/随机5注开奖结果配对报告\n'+
+    '有效期数：'+evaluated.length+'\n查询来源：'+(official.source||'接口返回的开奖结果')+
+    '\n查询时间：'+(official.checkedAt||new Date().toISOString())+
+    '\n\n【逐期原始指标】\n'+$('comparisons').textContent+
+    '\n\n【每期5注具体命中】\n'+$('detailedReports').textContent+
+    '\n\n【公平开奖结构校准】\n'+$('calibratedSummary').textContent+
+    '\n\n注意：本地凭证无法单独提供可信第三方事前时间证明；此文件不是中奖凭证。';
+  }
   updateView();
  }catch(e){$('compareStatus').textContent='官网对照失败：'+(e?.message||String(e))}
  finally{btn.disabled=false}
+}
+function downloadDetailedReport(){
+ if(!latestReport)return;
+ const blob=new Blob([latestReport],{type:'text/plain;charset=utf-8'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download='dlt-paired-draw-report.txt';a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 async function calculateBaseline(){
  const btn=$('baseline'),out=$('baselineStatus'),period=selected();
@@ -288,6 +306,6 @@ $('backupFile').onchange=()=>{importedBackup=null;$('compareBackup').disabled=tr
 $('verifyBackup').onclick=verifyBackupFile;
 $('compareBackup').onclick=compareBackupFile;
 $('refresh').onclick=refresh;$('period').onchange=updateView;$('create').onclick=create;$('compare').onclick=compare;
-$('export').onclick=exportEvidence;$('baseline').onclick=calculateBaseline;$('copy').onclick=copy;
+$('export').onclick=exportEvidence;$('baseline').onclick=calculateBaseline;$('exportReport').onclick=downloadDetailedReport;$('copy').onclick=copy;
 refresh();
 </script></body></html>
