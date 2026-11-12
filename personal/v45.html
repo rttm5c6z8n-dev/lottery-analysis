@@ -12,7 +12,7 @@ section{background:#1e2b43;border:1px solid #425674;border-radius:16px;padding:1
 </section>
 <section><h2>读取自己的历史数据并运行检验</h2>
 <p>读取V3.1中保存的历史快照，先检查每期7个号码格式、重复期号和快照SHA-256。不会修改任何记录，也不会重新进行2142万种组合搜索。</p>
-<button id="run" type="button">运行94项频率检验＋滚动样本外验证</button> <button id="copySummary" type="button" disabled>复制本次研究摘要</button>
+<button id="run" type="button">运行94项频率检验＋滚动样本外验证</button> <button id="copySummary" type="button" disabled>复制本次研究摘要</button><p><small>运行成功后，复制按钮会启用；如果手机上看不到按钮，可以在页面最下方的「研究报告复制区」长按全文复制。</small></p>
 <p id="status" role="status">尚未运行；暂无真实历史检验结论。</p>
 <pre id="historyInfo"></pre>
 </section>
@@ -43,7 +43,7 @@ section{background:#1e2b43;border:1px solid #425674;border-radius:16px;padding:1
 <div class="scroll"><table><thead><tr><th>覆盖</th><th>一等奖（5+2）</th><th>二等奖（5+1）</th></tr></thead><tbody id="odds"></tbody></table></div>
 <p>此表假设5注的<strong>前区5号码组合互不相同</strong>；在完全公平的摇奖中，覆盖不同号码不会令每注中奖概率更大，只影响不同注的相关性及组合覆盖方式。</p>
 </section>
-<section><h2>实验结论与下一步</h2><pre id="conclusion">需要真实历史数据计算后才能得出结论。若找不到可复制的偏差，则不能把统计频率包装为一等奖或二等奖预测优势。</pre>
+<section><h2>研究报告复制区</h2><p>这里会显示本次完整摘要，长按文本即可复制，也可以点击下方按钮。</p><button id="copySummaryBottom" type="button" disabled>复制完整研究报告</button><textarea id="summaryText" readonly aria-label="研究结果摘要" rows="12" style="display:block;width:100%;box-sizing:border-box;resize:vertical;background:#101a2b;color:#f0f5ff;border:1px solid #627794;border-radius:10px;margin-top:12px;padding:12px;font:14px/1.7 ui-monospace,monospace" placeholder="运行上方研究检验后，本次报告会自动出现在这里。"></textarea></section><section><h2>实验结论与下一步</h2><pre id="conclusion">需要真实历史数据计算后才能得出结论。若找不到可复制的偏差，则不能把统计频率包装为一等奖或二等奖预测优势。</pre>
 <p>要进一步验证机械偏差，应增加<strong>每期球组编号、摇奖机型号或更换日期、试机记录、视频与实验室球重测量数据</strong>，并记录这些信息在开奖前是否可知。没有实证支持，不假设有人操控开奖结果。</p></section>
 </main><script type="module">
 import{readResearchData,verifySnapshotFingerprints}from './real-data-check.mjs';
@@ -103,7 +103,7 @@ function showPrizeCandidates(hyp){
 }
 async function run(){
  const btn=$('run');btn.disabled=true;
- reportText='';$('copySummary').disabled=true;
+ reportText='';$('copySummary').disabled=true;$('copySummaryBottom').disabled=true;$('summaryText').value='';
  $('status').textContent='正在读取并验证历史快照……';
  $('frequencyRows').replaceChildren();$('frequencyStatus').textContent='正在计算……';
  $('walkStatus').textContent='正在计算……';$('historyInfo').textContent='';
@@ -151,6 +151,8 @@ async function run(){
    '注意：当前模型没有经过可验证的多期事前预测实证。不能据此保证一等奖或二等奖。'
   ].join('\n');
   $('copySummary').disabled=false;
+  $('copySummaryBottom').disabled=false;
+  $('summaryText').value=reportText;
   $('conclusion').textContent=(test.preliminarySignal?'样本外得到初步值得关注的统计差异；必须继续在未来未发生的开奖中预注册验证。':'现有预设预测方法尚未通过稳健样本外检验，不能据此选择所谓更可能中一、二等奖的号码。')+
    '\n\n全局及近期频率校正后显著异常：'+freq.significant.length+'项。\n'+freq.caveat+'\n\n'+test.caveat;
   $('status').textContent='真实历史研究计算完成；仅生成只读研究报告，没有写入预测记录或修改历史库。';
@@ -193,6 +195,7 @@ async function machineFetch(){
 }
 $('machineFetch').onclick=machineFetch;
 try{machineSummary()}catch(e){$('machineSummary').textContent='球组研究缓存异常：'+e.message+'。不影响V4.5其他功能。'}
+$('copySummaryBottom').onclick=()=>{$('copySummary').click()};
 $('copySummary').onclick=async()=>{
  if(!reportText)return;
  try{
@@ -201,7 +204,7 @@ $('copySummary').onclick=async()=>{
   $('status').textContent='本次研究摘要已复制，可以直接粘贴发送。所有原始数据保持不变。';
  }catch(e){
   $('status').textContent='一键复制不可用：'+e.message+'；已将摘要显示在下面，长按即可复制。';
-  $('historyInfo').textContent=reportText;
+  $('summaryText').focus();$('summaryText').select();
  }
 };
 $('run').onclick=run;odds();
