@@ -24,4 +24,8 @@ assert.deepEqual(buildProspectiveMonitor([],official).rows,[]);
 const wrong={...item,verification:{draw:{front:[1,2,3,4,5],back:[1,2]},result:{frontHits:5,backHits:2,exact:true}}};
 assert.equal(buildProspectiveMonitor([wrong],official).rows[0].eligibleTickets,0);
 assert.throws(()=>buildProspectiveMonitor('wrong',official),/不是数组/);
+const badProof=buildProspectiveMonitor([item],official,new Set(['26129']));
+assert.equal(badProof.rows[0].eligibleTickets,0);
+assert.match(badProof.rows[0].sourceStatus,/指纹校验失败/);
+assert.deepEqual(badProof.invalidProofPeriods,['26129']);
 console.log('V4.3 prospective read-only monitoring tests passed');
