@@ -14,7 +14,8 @@ assert.equal((await inspectLockProof(stamped.records.slice().reverse(),subtle)).
 const evidence=exportLockEvidence(stamped.records);
 assert.equal(evidence.proof.digest,stamped.proof.digest);
 assert.equal(evidence.canonical.records.length,5);
-assert.equal((await inspectLockProof(stamped.records.map(r=>({...r,verification:{draw:{front:[2,12,14,17,33],back:[7,8]}})),subtle)).valid,true,'verification added after draw must not change pre-draw commitment');
+const withVerification=stamped.records.map(r=>({...r,verification:{draw:{front:[2,12,14,17,33],back:[7,8]}}}));
+assert.equal((await inspectLockProof(withVerification,subtle)).valid,true,'verification added after draw must not change pre-draw commitment');
 const altered=stamped.records.map((r,i)=>i===2?{...r,ticket:{...r.ticket,back:[7,9]}}:r);
 assert.equal((await inspectLockProof(altered,subtle)).valid,false,'ticket changes must be detected');
 const changedTime=stamped.records.map((r,i)=>i===0?{...r,createdAt:'2026-11-12T03:00:00Z'}:r);
