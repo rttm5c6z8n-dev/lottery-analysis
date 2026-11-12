@@ -1,0 +1,34 @@
+name: V4.7 paired experiment regression
+
+on:
+  push:
+    paths:
+      - 'personal/v47*'
+      - 'personal/v38-core.mjs'
+      - 'personal/v40-lock-proof.mjs'
+      - 'personal/five-batch-audit.mjs'
+      - 'tests/v47-regression.test.mjs'
+      - '.github/workflows/v47-regression.yml'
+  pull_request:
+    paths:
+      - 'personal/v47*'
+      - 'personal/v38-core.mjs'
+      - 'personal/v40-lock-proof.mjs'
+      - 'personal/five-batch-audit.mjs'
+      - 'tests/v47-regression.test.mjs'
+      - '.github/workflows/v47-regression.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-paired-experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate paired-experiment calculations and JSON proof
+        run: node --test tests/v47-regression.test.mjs
