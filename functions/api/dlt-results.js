@@ -1,28 +1,33 @@
 import{HISTORY_URL,LATEST_URL,officialResultResponse}from '../../personal/dlt-results-core.mjs';
 const safeHeaders={'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store'};
 async function fetchOfficial(url,signal){
- const res=await fetch(url,{signal,redirect:'follow',headers:{Accept:'text/html'},cf:{cacheTtl:0}});
- if(!res.ok)throw Error('官方页面 '+new URL(url).pathname+' HTTP '+res.status);
- if(!res.headers.get('content-type')?.toLowerCase().includes('html'))throw Error('官方页面非HTML，停止自动解析');
- const html=await res.text();
- if(html.length>2_000_000)throw Error('官方页面内容过大');
+ const response=await fetch(url,{signal,redirect:'follow',headers:{Accept:'text/html,application/xhtml+xml'},cf:{cacheTtl:0}});
+ if(!response.ok)throw Error(new URL(url).pathname+' HTTP '+response.status);
+ const type=response.headers.get('content-type')?.toLowerCase()||'';
+ if(!type.includes('html'))throw Error(new URL(url).pathname+' 非HTML响应：'+type);
+ const html=await response.text();
+ if(html.length>2_000_000)throw Error(new URL(url).pathname+' 页面超过大小限制');
  return html;
 }
 export async function onRequestGet({request}){
  const url=new URL(request.url);
- if(request.headers.get('origin')&&request.headers.get('origin')!==url.origin)return Response.json({error:'不接受跨站请求'},{status:403,headers:safeHeaders});
+ if(request.headers.get('origin')&&request.headers.get('origin')!==url.origin)return Response.json({error:'不接受跨站请求',code:'CROSS_ORIGIN'},{status:403,headers:safeHeaders});
  const controller=new AbortController();
- const timeout=setTimeout(()=>controller.abort(),8000);
+ const timeout=setTimeout(()=>controller.abort(),11000);
  try{
-  const history=await fetchOfficial(HISTORY_URL,controller.signal);
-  // The secondary page is a corroboration check, not required to return raw history records.
-  const latest=await fetchOfficial(LATEST_URL,controller.signal).catch(()=>null);
-  const data=officialResultResponse(history,latest,new Date().toISOString());
-  return Response.json(data,{headers:safeHeaders});
+  const [historyResult,latestResult]=await Promise.allSettled([fetchOfficial(HISTORY_URL,controller.signal),fetchOfficial(LATEST_URL,controller.signal)]);
+  if(historyResult.status!=='fulfilled')throw Error('历史开奖页获取失败：'+String(historyResult.reason?.message||historyResult.reason));
+  const latest=latestResult.status==='fulfilled'?latestResult.value:null;
+  let data;
+  try{data=officialResultResponse(historyResult.value,latest,new Date().toISOString())}
+  catch(e){return Response.json({error:'官网历史开奖解析失败：'+e.message,code:'PARSE_ERROR',source:HISTORY_URL,records:[],crossPageAgreement:false,verifiedByIndependentPublisher:false},{status:503,headers:safeHeaders})}
+  const diagnostics={historyPage:'ok',latestPage:latestResult.status==='fulfilled'?'ok':'unavailable',latestPageError:latestResult.status==='rejected'?String(latestResult.reason?.message||latestResult.reason):null,agreement:data.crossPageAgreement?'same-site-match':'unconfirmed'};
+  return Response.json({...data,diagnostics},{headers:safeHeaders});
  }catch(e){
-  return Response.json({error:'官方历史开奖结果查询失败：'+(e?.message||String(e)),
-   source:HISTORY_URL,records:[],crossPageAgreement:false,
-   note:'未猜测也未缓存号码。不会修改本机历史或预测记录。'},
-  {status:503,headers:safeHeaders});
+  const timedOut=controller.signal.aborted;
+  return Response.json({error:(timedOut?'官方查询超时：':'官网获取失败：')+String(e?.message||e),code:timedOut?'UPSTREAM_TIMEOUT':'UPSTREAM_UNAVAILABLE',
+   source:HISTORY_URL,records:[],crossPageAgreement:false,verifiedByIndependentPublisher:false,
+   note:'没有使用旧缓存或猜测号码；不会修改本机历史数据和预测记录。'},
+   {status:503,headers:safeHeaders});
  }finally{clearTimeout(timeout)}
 }
