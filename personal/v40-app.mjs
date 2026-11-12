@@ -128,4 +128,5 @@ export function init(){
  $('nextDrawRefresh').onclick=nextDrawRefresh;
  $('useNextPeriod').onclick=useNextPeriod;
  load();
+ nextDrawRefresh();
 }
