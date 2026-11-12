@@ -127,6 +127,17 @@ export function walkForwardBiasTest(input,{testDraws=400,trainWindow=600,priorSt
    '未在预设样本外检验中获得稳健的正向证据；不应把历史热号视为可提高中奖概率',
   caveat:'本测试使用过去600期频率、预设平滑和限幅预测下一期，逐期滚动更新；对照公平随机模型的完整无序5+2开奖概率。区间使用近似标准误，历史期次可能不独立；若反复改参数、重复试验，须另留全新数据检验。没有每期球组和设备标识，不能做设备归因。'};
 }
+export function forwardWeightsAtLatest(input,{trainWindow=600,priorStrength=1800,weightLimit=0.2}={}){
+ const rows=canonicalHistory(input);
+ if(!Number.isInteger(trainWindow)||trainWindow<300||trainWindow>2000||rows.length<trainWindow||
+ !Number.isFinite(priorStrength)||priorStrength<100||priorStrength>10000||
+ !Number.isFinite(weightLimit)||weightLimit<=0||weightLimit>0.5)throw Error('未来一期预测权重参数无效');
+ const windowRows=rows.slice(-trainWindow);
+ return{throughPeriod:rows.at(-1).period,trainWindow,priorStrength,weightLimit,
+  front:inclusionWeights(countZone(windowRows,0,5,35),trainWindow,5/35,priorStrength,weightLimit),
+  back:inclusionWeights(countZone(windowRows,5,2,12),trainWindow,2/12,priorStrength,weightLimit),
+  warning:'只用历史截止期以前的数据推导未来一期权重。该权重未通过未来开奖检验，不保证比均匀模型更准。'};
+}
 export function prizeOdds(ticketCount=1){
  if(!Number.isInteger(ticketCount)||ticketCount<1||ticketCount>5)throw Error('仅计算1至5注且前区组合互异的策略');
  const first=ticketCount/EXACT_COMBINATIONS,second=ticketCount*20/EXACT_COMBINATIONS;
