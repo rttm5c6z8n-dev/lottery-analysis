@@ -278,11 +278,9 @@ async function compareBackupFile(){
   }
   if(!draw){out.textContent+='\n\n第'+period+'期尚未从官网接口取得完整开奖结果，不计成绩。';return}
   const score=evaluatePair(importedBackup,draw);
-  out.textContent+='\n\n【官网接口查询结果】第'+period+'期：\n开奖号码：'+pickText([draw])+
-   '\n模型最佳前区：'+score.model.bestFront+'（对应最高后区'+score.model.bestBackAtBestFront+'）'+
-   '\n随机最佳前区：'+score.control.bestFront+'（对应最高后区'+score.control.bestBackAtBestFront+'）'+
-   '\n前区命中差：'+(score.bestFrontDelta>=0?'+':'')+score.bestFrontDelta+
-   '\n'+score.verdict+'\n仅做凭证文件的独立查看，不写入多期成绩；不代表第三方事前公证。';
+  const base=exactFairFrontBenchmark(importedBackup.payload.modelTickets,importedBackup.payload.controlTickets);
+  out.textContent+='\n\n'+formatPairedDrawReport(score,draw,base)+
+   '\n\n仅只读查看备份；不写入本机累计成绩，也不能凭此证明第三方事前锁定。';
  }catch(e){out.textContent+='\n\n备份开奖核对失败：'+(e?.message||String(e))}
  finally{btn.disabled=!importedBackup}
 }
