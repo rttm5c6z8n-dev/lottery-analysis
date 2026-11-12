@@ -40,6 +40,8 @@ jobs:
           node tests/personal-v40-next-draw.test.mjs
           node tests/personal-v40-live-lock-gate.test.mjs
           node tests/personal-v40-lock-proof.test.mjs
+          node tests/personal-v40-server-receipt.test.mjs
+          node tests/personal-v40-server-endpoint.test.mjs
           node tests/personal-v41.test.mjs
           node tests/personal-v42.test.mjs
           node tests/personal-integration.test.mjs
