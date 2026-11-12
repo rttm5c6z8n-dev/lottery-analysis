@@ -3,16 +3,17 @@
 </head><body><main><nav><a href="./">← V3.1</a> · <a href="./v40.html">V4.0 锁定预测</a> · <a href="./v42.html">V4.2 官网核验</a> · <a href="./v39.html">V3.9 正式成绩</a> · <a href="./v44.html">V4.4 随机基准</a></nav>
 <h1>V4.3 · 连续预测观察</h1>
 <p>按开奖期号汇总已留档预测与官网开奖历史。5注属于同一期，不是5次独立开奖。此页面完全只读，不回填期号、不追加核验，也不修改原历史数据。</p>
-<section><h2>自动检查</h2><button id="refresh">重新读取本机预测与官网开奖</button><p id="status" role="status">正在初始化……</p><div id="summary"></div><small>官网两处页面一致仅对最新期有效；往期历史列表仅来自同一体彩管理中心官网的历史开奖页面，不能视为已双重确认。</small></section>
+<section><h2>自动检查</h2><button id="refresh">重新读取本机预测与官网开奖</button><p id="status" role="status">正在初始化……</p><div id="summary"></div><div id="observationSummary"></div><small>官网两处页面一致仅对最新期有效；往期历史列表仅来自同一体彩管理中心官网的历史开奖页面，不能视为已双重确认。</small></section>
 <section><h2>按期观察</h2><div class="tablewrap"><table><thead><tr><th>期号</th><th>已留档注数</th><th>通过事前结构检查</th><th>开奖数据状态</th><th>最佳前区</th><th>完整5+2</th></tr></thead><tbody id="rows"></tbody></table></div><pre id="details"></pre></section>
 <section><h2>结论边界</h2><p>这是一张研究观察表，不会把往期开奖比对自动算成“事前预测成功”。本机保存时间可以修改，不能作为独立时间公证；从模型存档推导出的历史对照也不会自动纳入V3.9正式成绩。</p><p>尚未锁定未来期号时，显示0期预测属于正常状态。可前往 <a href="./v40.html">V4.0</a>，先核实未来目标期号与官方计划开奖时间，再留档完整5组。</p></section>
 </main><script type="module">
 import{buildProspectiveMonitor}from './v43-monitor-core.mjs';
+import{summarizeObservations}from './v43-observation-summary.mjs';
 const $=id=>document.getElementById(id);
 function readJournal(){const raw=localStorage.getItem('lottery_v38_predictions');if(raw===null)return [];const parsed=JSON.parse(raw);if(!Array.isArray(parsed))throw Error('本机预测留档格式异常');return parsed}
 async function refresh(){
  $('refresh').disabled=true;$('status').textContent='正在读取本机留档及官网开奖历史……';
- $('summary').replaceChildren();$('rows').replaceChildren();$('details').textContent='';
+ $('summary').replaceChildren();$('observationSummary').replaceChildren();$('rows').replaceChildren();$('details').textContent='';
  try{
   const journal=readJournal();
   const res=await fetch('/api/dlt-results',{cache:'no-store',headers:{Accept:'application/json'}});
@@ -23,6 +24,13 @@ async function refresh(){
   sum.textContent='本机留档 '+report.storedTickets+' 注、'+report.periods+' 期；有官网历史开奖可比对 '+report.periodsWithOfficialData+' 期；格式异常 '+report.unsafeRecords+' 条。';
   $('summary').append(sum);
   if(report.batchIssues?.length){const warning=document.createElement('p');warning.textContent='批次完整性警告：'+report.batchIssues.length+'项；涉及的异常批次已排除，未计入有效注数。';$('summary').append(warning)}
+  const observation=summarizeObservations(report,new Date().toISOString());
+  const notes=document.createElement('p');
+  notes.textContent='连续观察：待开奖 '+observation.pendingPeriods+'期；官网最新期双页面一致 '+observation.doublePagePeriods+'期；官网历史页单一来源 '+observation.historyOnlyPeriods+'期；已过最新期但历史列表未覆盖 '+observation.missingHistoryPeriods+'期；记录结构不合格 '+observation.rejectedPeriods+'期。';
+  $('observationSummary').append(notes);
+  const averages=document.createElement('p');
+  averages.textContent='有开奖号码可比对 '+observation.observedPeriods+'期、'+observation.observedTickets+'注；前区平均 '+(observation.meanFront===null?'暂无':observation.meanFront.toFixed(3))+'（随机单注理论基准0.714）；后区平均 '+(observation.meanBack===null?'暂无':observation.meanBack.toFixed(3))+'（随机单注理论基准0.333）。此处不构成事前预测优势证据。';
+  $('observationSummary').append(averages);
   const lines=[];
   for(const row of report.rows){
    const tr=document.createElement('tr');
