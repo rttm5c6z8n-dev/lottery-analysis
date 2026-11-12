@@ -17,7 +17,7 @@
 </section>
 <section><h2>3. 同期开奖后对照</h2>
 <button id="compare" type="button" disabled>查询官网并比较所有已登记期号</button>
-<p id="compareStatus" role="status">未查询。</p><pre id="comparisons"></pre>
+<p id="compareStatus" role="status">未查询。</p><pre id="comparisons"></pre><h3>开奖后逐期详细报告</h3><pre id="detailedReports">尚无已核实的开奖结果。</pre><h3>累计实际成绩与公平基准</h3><pre id="calibratedSummary">尚无可统计的已开奖期号。</pre>
 <p><small>主指标是每期5注中的最佳前区命中数；另记录一、二等奖实际命中与最佳前区对应的后区表现。只是观察指标，不能承诺提高中奖概率。</small></p></section>
 <section><h2>3A. 公平随机结构基准（开奖前即可计算）</h2>
 <p>在不使用开奖结果的前提下，精确遍历全部324632种前区开奖组合，检验当前模型5注与随机5注在<strong>原先预注册的“每期最佳前区命中”指标</strong>上，是否天然有结构差异。结果只是公平开奖下的理论基准，不改变已锁定号码和实验规则。</p>
@@ -37,12 +37,12 @@
 <small>此项只能核验文件内部自洽性。如果缺少原始V4.0留档，不能证明模型真实锁定时间；上传后的对比也不计入本机正式多期统计。</small>
 </section>
 </main><script type="module">
-import{verifyLockedModel,createPairRecord,verifyPairRecord,evaluatePair,summarizePairedRounds,exactFairFrontBenchmark,verifyExportedPairStandalone}from './v47-paired-control.mjs';
+import{verifyLockedModel,createPairRecord,verifyPairRecord,evaluatePair,summarizePairedRounds,exactFairFrontBenchmark,verifyExportedPairStandalone,formatPairedDrawReport,summarizeCalibratedPairedRounds}from './v47-paired-control.mjs';
 import{verifyLiveLockGate}from './v40-live-lock-gate.mjs';
 import{validateTicket}from './v38-core.mjs';
 const JOURNAL_KEY='lottery_v38_predictions',PAIR_KEY='lottery_v47_paired_controls';
 const $=id=>document.getElementById(id),pad=n=>String(n).padStart(2,'0');
-let validGroups=new Map(),outcomeText='',importedBackup=null;
+let validGroups=new Map(),outcomeText='',importedBackup=null;const benchmarkCache=new Map();
 function journal(){
  const raw=localStorage.getItem(JOURNAL_KEY);
  if(raw===null)return[];
@@ -142,7 +142,7 @@ async function compare(){
  const btn=$('compare');btn.disabled=true;
  $('compareStatus').textContent='读取官网开奖、校验每期配对指纹……';
  try{
-  const official=await requestOfficial(),all=pairs(),groups=modelGroups(),lines=[],evaluated=[];
+  const official=await requestOfficial(),all=pairs(),groups=modelGroups(),lines=[],evaluated=[],reports=[],calibrated=[];
   const map=new Map();
   for(const r of official.records||[]){
    try{
@@ -161,7 +161,14 @@ async function compare(){
      lines.push('第'+period+'期：'+label+'；凭证已校验，不计成绩。');continue;
     }
     const score=evaluatePair(record,draw);
+    // Yield to the browser between draws to keep the interface responsive.
+    await new Promise(resolve=>setTimeout(resolve,0));
+    const key=record.proof.digest;
+    let base=benchmarkCache.get(key);
+    if(!base){base=exactFairFrontBenchmark(record.payload.modelTickets,record.payload.controlTickets);benchmarkCache.set(key,base)}
     evaluated.push(score);
+    calibrated.push({score,benchmark:base});
+    reports.push(formatPairedDrawReport(score,draw,base));
     lines.push('第'+period+'期：模型最佳前区'+score.model.bestFront+'，随机最佳前区'+score.control.bestFront+
      '，差值'+(score.bestFrontDelta>=0?'+':'')+score.bestFrontDelta+
      '；一等奖（模型/随机）：'+(score.model.firstPrize?'是':'否')+'/'+(score.control.firstPrize?'是':'否')+
@@ -170,12 +177,22 @@ async function compare(){
    }catch(e){lines.push('第'+period+'期：记录检验失败，整期排除：'+e.message)}
   }
   const summary=summarizePairedRounds(evaluated);
+  const baselineSummary=summarizeCalibratedPairedRounds(calibrated);
+  const signed=n=>(n>=0?'+':'')+n.toFixed(4);
+  $('detailedReports').textContent=reports.length?reports.join('\n\n────────────\n\n'):'尚未取得可核验的已登记期号开奖结果。';
+  $('calibratedSummary').textContent=baselineSummary.periods?
+    '有效期数：'+baselineSummary.periods+'\n实际平均最佳前区差（模型−随机）：'+signed(baselineSummary.observedMeanDelta)+
+    '\n公平开奖结构预期平均差：'+signed(baselineSummary.expectedMeanDelta)+
+    '\n实际减理论基准的平均偏离：'+signed(baselineSummary.meanExcess)+
+    '\n公平基准下模型期望胜场：'+baselineSummary.expectedModelWins.toFixed(2)+
+    '\n公平基准下随机期望胜场：'+baselineSummary.expectedControlWins.toFixed(2)+
+    '\n\n'+baselineSummary.notice:'尚未取得可纳入统计的开奖成绩。';
   $('comparisons').textContent=lines.join('\n')+'\n\n有效比较：'+summary.periods+'期；模型胜'+summary.modelWins+
    '、随机胜'+summary.controlWins+'、打平'+summary.ties+
    '；最佳前区命中差均值：'+(summary.meanBestFrontDifference===null?'无':summary.meanBestFrontDifference.toFixed(4))+
    '\n'+summary.notice;
   $('compareStatus').textContent='只读对照完成；未修改任何正式留档或观察数据。';
-  outcomeText=$('comparisons').textContent+'\n本地随机对照没有独立可信时间戳；不能单独作为事前预测优势证据。';
+  outcomeText=$('comparisons').textContent+'\n\n'+$('calibratedSummary').textContent+'\n本地随机对照没有独立可信时间戳；不能单独作为事前预测优势证据。';
   $('summary').value=outcomeText;
   updateView();
  }catch(e){$('compareStatus').textContent='官网对照失败：'+(e?.message||String(e))}
