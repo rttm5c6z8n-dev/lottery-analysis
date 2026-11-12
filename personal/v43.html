@@ -22,6 +22,7 @@ async function refresh(){
   const sum=document.createElement('p');
   sum.textContent='本机留档 '+report.storedTickets+' 注、'+report.periods+' 期；有官网历史开奖可比对 '+report.periodsWithOfficialData+' 期；格式异常 '+report.unsafeRecords+' 条。';
   $('summary').append(sum);
+  if(report.batchIssues?.length){const warning=document.createElement('p');warning.textContent='批次完整性警告：'+report.batchIssues.length+'项；涉及的异常批次已排除，未计入有效注数。';$('summary').append(warning)}
   const lines=[];
   for(const row of report.rows){
    const tr=document.createElement('tr');
