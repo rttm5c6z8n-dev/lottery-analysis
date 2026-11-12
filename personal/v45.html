@@ -129,6 +129,6 @@ async function machineFetch(){
  finally{btn.disabled=false}
 }
 $('machineFetch').onclick=machineFetch;
-machineSummary();
+try{machineSummary()}catch(e){$('machineSummary').textContent='球组研究缓存异常：'+e.message+'。不影响V4.5其他功能。'}
 $('run').onclick=run;odds();
 </script></body></html>
