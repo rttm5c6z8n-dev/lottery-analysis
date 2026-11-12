@@ -102,8 +102,8 @@ async function refresh(){
  }catch(e){$('loadStatus').textContent='读取失败：'+e.message+'；历史数据未修改。'}
  finally{$('refresh').disabled=false}
 }
-async function requestOfficial(){
- const res=await fetch('/api/dlt-results',{cache:'no-store',headers:{Accept:'application/json'}});
+async function requestOfficial(allHistory=false){
+ const res=await fetch('/api/dlt-results'+(allHistory?'?all=1':''),{cache:'no-store',headers:{Accept:'application/json'}});
  const body=await res.json();
  if(!res.ok)throw Error(body.error||'官网接口暂不可用');
  return body;
@@ -144,7 +144,7 @@ async function compare(){
  const btn=$('compare');btn.disabled=true;latestReport='';$('exportReport').disabled=true;
  $('compareStatus').textContent='读取官网开奖、校验每期配对指纹……';
  try{
-  const official=await requestOfficial(),all=pairs(),groups=modelGroups(),lines=[],evaluated=[],reports=[],calibrated=[];
+  const official=await requestOfficial(true),all=pairs(),groups=modelGroups(),lines=[],evaluated=[],reports=[],calibrated=[];
   const map=new Map();
   for(const r of official.records||[]){
    try{
@@ -286,7 +286,7 @@ async function compareBackupFile(){
  try{
   if(!importedBackup)throw Error('请先核验JSON文件');
   const check=await verifyExportedPairStandalone(importedBackup);
-  const official=await requestOfficial(),period=check.period;
+  const official=await requestOfficial(true),period=check.period;
   let draw=null;
   for(const r of official.records||[]){
    if(String(r.period)!==period)continue;
