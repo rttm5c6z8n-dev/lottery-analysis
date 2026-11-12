@@ -1,0 +1,55 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V4.4 五组号码随机基准实验</title><style>body{margin:0;background:#101827;color:#eaf1ff;font:15px/1.7 system-ui}main{max-width:880px;margin:auto;padding:20px}section{background:#1d2b43;border:1px solid #40516e;border-radius:16px;padding:20px;margin:16px 0}button{font:inherit;padding:11px 16px;background:#85b4ff;border:0;color:#11213b;border-radius:9px}button:disabled{opacity:.55}a{color:#a6caff}select{padding:10px;background:#111e35;color:#eef;border:1px solid #526781;border-radius:8px;max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{border-collapse:collapse;width:100%}td,th{padding:8px;border-bottom:1px solid #485b79;text-align:left}small{color:#b9c9de}</style></head><body><main><nav><a href="./">← V3.1</a> · <a href="./v42.html">V4.2 历史对照</a> · <a href="./v43.html">V4.3 连续观察</a></nav><h1>V4.4 · 五组号码随机基准</h1><p>保持模型已经选出的5注不变，模拟20,000次随机开奖。每一轮只有1期开奖结果，保留5注之间的重合，避免误当成5次独立开奖。结果可用同一个随机种子重复验证。</p><section><h2>研究存档</h2><button id="load" type="button">读取已保存5组号码（只读）</button><p id="loadStatus" role="status">尚未读取</p><label>完整研究结果 <select id="archive"></select></label><pre id="picks"></pre></section><section><h2>随机对照与实际开奖</h2><button id="run" type="button" disabled>运行20,000次随机开奖对照</button><p id="runStatus" role="status">读取完整研究存档后可运行。</p><pre id="actual"></pre><div style="overflow-x:auto"><table><thead><tr><th>5注中的最佳前区命中</th><th>随机开奖占比</th></tr></thead><tbody id="hist"></tbody></table></div><pre id="result"></pre><p><small>如果官方开奖页获取失败，仍可只运行随机分布，但不能显示本期的实际对照。一次历史对照不能证明预测有效；这是研究工具，不是购买建议。</small></p></section></main><script type="module">
+import{readResearchData}from './real-data-check.mjs';
+import{eligibleArchivedResults}from './v40-core.mjs';
+import{simulateFixedFive}from './v44-random-baseline.mjs';
+import{assessOfficialDrawPayload}from './v42-official-check.mjs';
+const $=id=>document.getElementById(id);let archives=[],official=null;
+const pad=n=>String(n).padStart(2,'0');
+function drawPicks(){
+ const r=archives.find(x=>x.id===$('archive').value);
+ $('picks').textContent=r?'历史截止 '+r.throughPeriod+'；模型生成 '+r.generatedAt+'\n'+r.picks.map((p,i)=>'第'+(i+1)+'组 '+p.nums.slice(0,5).map(pad).join(' ')+' + '+p.nums.slice(5).map(pad).join(' ')).join('\n'):'未发现符合完整覆盖和来源关联检查的5组存档';
+ $('run').disabled=!r;
+}
+async function load(){
+ $('load').disabled=true;$('loadStatus').textContent='正在读取V3.1完整选号存档……';
+ try{
+  const d=await readResearchData(globalThis.indexedDB);
+  archives=eligibleArchivedResults(d).map(x=>x.result).sort((a,b)=>String(b.generatedAt).localeCompare(String(a.generatedAt)));
+  $('archive').replaceChildren();
+  for(const r of archives){const option=document.createElement('option');option.value=r.id;option.textContent=r.throughPeriod+' · '+r.id;$('archive').append(option)}
+  drawPicks();
+  $('loadStatus').textContent='只读读取完成：'+archives.length+'份完整存档，未修改原始数据。';
+ }catch(e){$('loadStatus').textContent='读取失败：'+(e?.message||String(e))+'。不要清空本机数据。'}
+ finally{$('load').disabled=false}
+}
+async function loadOfficial(){
+ try{
+  const res=await fetch('/api/dlt-results',{cache:'no-store',headers:{Accept:'application/json'}});
+  const data=await res.json();if(!res.ok)throw Error(data.error||'官网接口不可用');
+  const quality=assessOfficialDrawPayload(data);
+  if(!quality.canPrefill)throw Error(quality.status);
+  official=quality.latest;
+  $('actual').textContent='官网同站两页一致的最近一期：'+official.period+'（'+official.date+'）\n开奖号码：'+official.front.map(pad).join(' ')+' + '+official.back.map(pad).join(' ')+'\n注意：同站两页不是第三方独立认证。';
+ }catch(e){official=null;$('actual').textContent='当前不采用实际开奖号：'+(e?.message||String(e))+'。仍可研究纯随机基准。'}
+}
+async function run(){
+ $('run').disabled=true;$('runStatus').textContent='正在模拟20,000次单期开奖，使用固定随机种子……';
+ try{
+  const r=archives.find(x=>x.id===$('archive').value);
+  if(!r)throw Error('没有选中的完整存档');
+  await new Promise(resolve=>setTimeout(resolve,30));
+  const result=simulateFixedFive({picks:r.picks,actualDraw:official,rounds:20000,seed:20261112});
+  $('hist').replaceChildren();
+  for(let i=0;i<=5;i++){
+   const tr=document.createElement('tr');
+   for(const v of [i,(result.probabilityByBestFront[i]*100).toFixed(2)+'%']){const td=document.createElement('td');td.textContent=String(v);tr.append(td)}
+   $('hist').append(tr);
+  }
+  $('runStatus').textContent='模拟完成：20,000期开奖；随机种子 '+result.seed+'；后区不同组合 '+result.distinctBackPairs+' 种。';
+  $('result').textContent='随机开奖中5注最佳前区平均命中：'+result.meanBestFront.toFixed(3)+'个\n'+(result.observed?'本期实际5注最佳前区：'+result.observed.bestFront+'个、该组后区'+result.observed.bestBack+'个\n随机开奖达到至少该前区表现的经验频率：'+(100*result.observed.empiricalTail).toFixed(2)+'%\n':'')+'5注互异组合在单期开奖中至少1注完整5+2的精确概率：'+(100*result.exactJackpotProbability).toFixed(7)+'%\n\n'+result.caveat;
+ }catch(e){$('runStatus').textContent='模拟失败：'+(e?.message||String(e))}
+ finally{$('run').disabled=false}
+}
+$('load').onclick=load;$('archive').onchange=drawPicks;$('run').onclick=run;
+load();loadOfficial();
+</script></body></html>
