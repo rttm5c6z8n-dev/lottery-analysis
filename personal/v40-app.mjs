@@ -134,6 +134,57 @@ async function downloadLockEvidence(){
   status.textContent='已请求导出第'+rows[0].period+'期锁定凭证。请在开奖前保存到独立位置；本机哈希不是第三方公证。';
  }catch(e){status.textContent='导出失败：'+e.message}
 }
+const SERVER_RECEIPTS='lottery_lock_server_receipts_v1';
+function getReceiptIndex(){
+ const raw=localStorage.getItem(SERVER_RECEIPTS);
+ if(!raw)return{};
+ let data;
+ try{data=JSON.parse(raw)}catch{throw Error('本机服务器回执索引无法解析，未覆盖')}
+ if(!data||typeof data!=='object'||Array.isArray(data))throw Error('本机服务器回执索引结构异常');
+ return data;
+}
+async function submitServerReceipt(){
+ const out=$('serverReceiptStatus'),btn=$('serverSubmit');
+ btn.disabled=true;out.textContent='正在检查本机指纹并向服务器提交……';
+ try{
+  const records=currentLockedPeriod(),check=await inspectLockProof(records);
+  if(!check.valid)throw Error('本机指纹未通过检查，禁止提交服务器');
+  const period=records[0].period,index=getReceiptIndex();
+  if(index[period])throw Error('该期已经保存回执索引，请先执行“查询服务器留档回执”');
+  const res=await fetch('/api/lock-receipts',{method:'POST',cache:'no-store',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({period,digest:check.digest,scope:records.length===5?'five-tickets':'single-ticket',
+    plannedDrawAt:records[0].targetEvidence?.plannedDrawAt})});
+  const data=await res.json();
+  if(!res.ok||!data.persisted||!data.receipt)throw Error(data.error||'服务器未确认持久化保存');
+  if(data.receipt.digest!==check.digest||data.receipt.period!==period)throw Error('服务器回执和本机指纹不一致，已拒绝存入索引');
+  index[period]={id:data.receipt.id,digest:check.digest,receivedAt:data.receipt.receivedAt};
+  localStorage.setItem(SERVER_RECEIPTS,JSON.stringify(index));
+  out.textContent='服务器已确认持久化接收指纹。回执ID：'+data.receipt.id+
+    '\n服务器记录时间：'+data.receipt.receivedAt+'\nSHA-256：'+check.digest+
+    '\n仅证明服务器数据库收到该摘要的时间，不是第三方法定公证。';
+ }catch(e){out.textContent='服务器凭证未建立：'+(e?.message||String(e))+'。本机预测不变。'}
+ finally{btn.disabled=false}
+}
+async function checkServerReceipt(){
+ const out=$('serverReceiptStatus'),btn=$('serverCheck');
+ btn.disabled=true;out.textContent='正在核查服务器原始回执……';
+ try{
+  const records=currentLockedPeriod(),local=await inspectLockProof(records);
+  if(!local.valid)throw Error('本机指纹无效，先检查原始留档');
+  const saved=getReceiptIndex()[records[0].period];
+  if(!saved?.id)throw Error('当前浏览器未保存该期回执ID；不能据此断言服务器没有记录');
+  const res=await fetch('/api/lock-receipts?id='+encodeURIComponent(saved.id),{cache:'no-store'});
+  const data=await res.json();
+  if(!res.ok||!data.persisted||!data.receipt)throw Error(data.error||'服务器未返回持久化回执');
+  if(data.receipt.id!==saved.id||data.receipt.period!==records[0].period||data.receipt.digest!==local.digest)
+   throw Error('服务器回执与本机记录不一致');
+  out.textContent='服务器回执查询一致。第'+data.receipt.period+'期\n回执ID：'+saved.id+
+   '\n服务器接收时间：'+data.receipt.receivedAt+'\n摘要：'+data.receipt.digest+
+   '\n该验证不构成对真实开奖计划和历史时间的独立法定公证。';
+ }catch(e){out.textContent='服务器回执未通过验证：'+(e?.message||String(e))}
+ finally{btn.disabled=false}
+}
 async function refreshOfficial(){
  const btn=$('officialRefresh'),out=$('officialStatus');btn.disabled=true;out.textContent='正在尝试读取官网公告标题……';
  try{
@@ -191,6 +242,8 @@ export function init(){
  $('useNextPeriod').onclick=useNextPeriod;
  $('proofVerify').onclick=inspectCurrentProof;
  $('proofExport').onclick=downloadLockEvidence;
+ $('serverSubmit').onclick=submitServerReceipt;
+ $('serverCheck').onclick=checkServerReceipt;
  load();
  nextDrawRefresh();
 }
