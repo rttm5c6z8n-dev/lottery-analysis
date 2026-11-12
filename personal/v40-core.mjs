@@ -15,7 +15,7 @@ export function chooseResult(results,id,rank){
  return{resultId:r.id,rank:rank+1,nums,generatedAt:r.generatedAt,trainId:r.trainId,reportId:r.reportId,weightsetId:r.weightsetId,version:r.version,throughPeriod:r.throughPeriod,searchMethod:r.searchMethod};
 }
 function strictTime(value,label){
- if(typeof value!=='string'||!/\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d)?(?:Z|[+-]\d\d:\d\d)$/.test(value))throw Error(label+'必须包含明确时区');
+ if(typeof value!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(value))throw Error(label+'必须包含明确时区');
  const ms=Date.parse(value);if(!Number.isFinite(ms))throw Error(label+'无效');return ms;
 }
 export function bridgeRecord({result,period,now,drawAt,sourceUrl}){
