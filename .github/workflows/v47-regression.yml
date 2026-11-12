@@ -5,6 +5,8 @@ on:
     paths:
       - 'personal/v47*'
       - 'personal/v38-core.mjs'
+      - 'personal/dlt-results-core.mjs'
+      - 'functions/api/dlt-results.js'
       - 'personal/v40-lock-proof.mjs'
       - 'personal/five-batch-audit.mjs'
       - 'tests/v47-regression.test.mjs'
@@ -13,6 +15,8 @@ on:
     paths:
       - 'personal/v47*'
       - 'personal/v38-core.mjs'
+      - 'personal/dlt-results-core.mjs'
+      - 'functions/api/dlt-results.js'
       - 'personal/v40-lock-proof.mjs'
       - 'personal/five-batch-audit.mjs'
       - 'tests/v47-regression.test.mjs'
