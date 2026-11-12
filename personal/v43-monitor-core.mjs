@@ -1,8 +1,9 @@
 import{validateTicket,verifyTicket}from './v38-core.mjs';
 import{auditMarkedBatches}from './five-batch-audit.mjs';
-export function buildProspectiveMonitor(journal,official){
+export function buildProspectiveMonitor(journal,official,invalidProofPeriods=new Set()){
  if(!Array.isArray(journal))throw Error('本机预测留档不是数组，已停止只读分析');
  if(!official||!Array.isArray(official.records))throw Error('官网接口未返回开奖列表');
+ if(!(invalidProofPeriods instanceof Set))throw Error('指纹异常期号必须是集合');
  const batchAudit=auditMarkedBatches(journal);
  const current=String(official.latestPeriod||''),latest=official.records[0];
  const latestTrusted=official.crossPageAgreement===true&&latest?.period===current;
@@ -31,6 +32,7 @@ export function buildProspectiveMonitor(journal,official){
   for(const entry of items){
    const record=entry.record;
    try{
+    if(invalidProofPeriods.has(period))throw Error('本机锁定哈希指纹校验失败');
     if(batchAudit.invalidIndices.has(entry.index))throw Error('标记的五组锁定批次不完整或不一致');
     if(!record?.ticket)throw Error('选号记录缺少组合');
     const t=validateTicket(record.ticket.front.join(' '),record.ticket.back.join(' '));
@@ -49,13 +51,13 @@ export function buildProspectiveMonitor(journal,official){
     scored.push({rank:record.source.rank||null,ticket:t,score:draw?verifyTicket(t,draw):null,alreadyVerified:!!record.verification});
    }catch{rejected++}
   }
-  const status=!draw?'官网当前列表尚无该期':!consistentSource?'官网历史页单一来源，尚未双页面确认':!scored.length?'预测记录未通过事前结构检查':'最新期同站双页面一致，当前为只读对照';
+  const status=invalidProofPeriods.has(period)?'本机锁定指纹校验失败，整期排除':!draw?'官网当前列表尚无该期':!consistentSource?'官网历史页单一来源，尚未双页面确认':!scored.length?'预测记录未通过事前结构检查':'最新期同站双页面一致，当前为只读对照';
   return{period,drawDate:draw?.date||null,sourceStatus:status,sourceCorroborated:consistentSource,storedTickets:items.length,eligibleTickets:scored.length,rejectedTickets:rejected,
     modelScores:scored,officialDraw:draw||null,verifiedLocally:scored.filter(x=>x.alreadyVerified).length,
     bestFront:draw&&scored.length?Math.max(...scored.map(x=>x.score.frontHits)):null,
     exactTickets:draw?scored.filter(x=>x.score?.exact).length:null};
  }).sort((a,b)=>b.period.localeCompare(a.period));
  return{rows,periods:rows.length,storedTickets:journal.length,unsafeRecords:unsafe,periodsWithOfficialData:rows.filter(x=>x.officialDraw).length,
-  latestOfficialPeriod:current||null,latestCrossPageAgreement:latestTrusted,batchIssues:batchAudit.issues,markedBatches:batchAudit.markedBatches,
+  latestOfficialPeriod:current||null,latestCrossPageAgreement:latestTrusted,batchIssues:batchAudit.issues,markedBatches:batchAudit.markedBatches,invalidProofPeriods:[...invalidProofPeriods],
   notes:'只读预测监测。官网历史期号可能只有单页来源；仅最新期在两处同一官网页面一致时有双页面校验。所有比分均为观察计算，不会自动写入正式成绩或证明事前可信时间。'};
 }
