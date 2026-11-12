@@ -19,12 +19,17 @@
 <button id="compare" type="button" disabled>查询官网并比较所有已登记期号</button>
 <p id="compareStatus" role="status">未查询。</p><pre id="comparisons"></pre>
 <p><small>主指标是每期5注中的最佳前区命中数；另记录一、二等奖实际命中与最佳前区对应的后区表现。只是观察指标，不能承诺提高中奖概率。</small></p></section>
+<section><h2>3A. 公平随机结构基准（开奖前即可计算）</h2>
+<p>在不使用开奖结果的前提下，精确遍历全部324632种前区开奖组合，检验当前模型5注与随机5注在<strong>原先预注册的“每期最佳前区命中”指标</strong>上，是否天然有结构差异。结果只是公平开奖下的理论基准，不改变已锁定号码和实验规则。</p>
+<button id="baseline" type="button" disabled>计算当前期公平随机结构基准</button>
+<pre id="baselineStatus" role="status">请选择已登记随机5注的期号。</pre>
+<p><small>如果两组号码覆盖范围不同，即使均无预测能力，胜负概率也不一定各为50%。该校准应与未来真实成绩分开报告。</small></p></section>
 <section><h2>4. 导出研究原始凭证</h2>
 <button id="export" type="button" disabled>导出当前期配对凭证JSON</button><button id="copy" type="button" disabled>复制本次实验摘要</button>
 <textarea id="summary" rows="12" readonly placeholder="登记随机对照或比较后，会在这里显示完整摘要，长按可复制。"></textarea>
 <p><small>本机与服务器可能被修改。只有可信的外部时间证明才能更强地证明这些号码在开奖前固定；不要把本地记录当成第三方公证。</small></p></section>
 </main><script type="module">
-import{verifyLockedModel,createPairRecord,verifyPairRecord,evaluatePair,summarizePairedRounds}from './v47-paired-control.mjs';
+import{verifyLockedModel,createPairRecord,verifyPairRecord,evaluatePair,summarizePairedRounds,exactFairFrontBenchmark}from './v47-paired-control.mjs';
 import{verifyLiveLockGate}from './v40-live-lock-gate.mjs';
 import{validateTicket}from './v38-core.mjs';
 const JOURNAL_KEY='lottery_v38_predictions',PAIR_KEY='lottery_v47_paired_controls';
@@ -64,6 +69,7 @@ function updateView(){
  $('compare').disabled=!Object.keys(pairs()).length;
  $('controlPreview').textContent=saved?(Array.isArray(saved.payload?.controlTickets)&&saved.payload.controlTickets.length===5?'已经登记的随机对照（只读，必须校验后才能计分）：\n'+pickText(saved.payload.controlTickets):'检测到该期对照存储结构异常，已拒绝重抽。请先导出原始凭证检查。'):'该期尚未登记随机对照。';
  $('export').disabled=!saved;
+ $('baseline').disabled=!v||!saved;
  $('copy').disabled=!outcomeText;
 }
 async function refresh(){
@@ -167,6 +173,27 @@ async function compare(){
  }catch(e){$('compareStatus').textContent='官网对照失败：'+(e?.message||String(e))}
  finally{btn.disabled=false}
 }
+async function calculateBaseline(){
+ const btn=$('baseline'),out=$('baselineStatus'),period=selected();
+ btn.disabled=true;out.textContent='正在校验固定凭证并枚举全部324632种公平前区结果……';
+ try{
+  const record=pairs()[period];
+  if(!record)throw Error('该期没有已登记的随机对照');
+  const locked=await verifyLockedModel(modelGroups().get(period));
+  await verifyPairRecord(record,locked);
+  if(selected()!==period)throw Error('用户已切换期号，已取消本次计算');
+  const b=exactFairFrontBenchmark(record.payload.modelTickets,record.payload.controlTickets);
+  const pct=n=>(n*100).toFixed(2)+'%';
+  out.textContent='第'+period+'期 · 精确枚举 '+b.total+' 种公平开奖前区组合\n'+
+   '模型最佳前区胜率：'+pct(b.modelWinProbability)+'（'+b.modelWins+' 种）\n'+
+   '随机最佳前区胜率：'+pct(b.controlWinProbability)+'（'+b.controlWins+' 种）\n'+
+   '双方打平：'+pct(b.tieProbability)+'（'+b.ties+' 种）\n\n'+
+   '模型最佳前区命中期望：'+b.expectedModelBest.toFixed(4)+'\n'+
+   '随机最佳前区命中期望：'+b.expectedControlBest.toFixed(4)+'\n'+
+   '模型减随机的理论期望差：'+b.expectedDelta.toFixed(4)+'\n\n'+b.notice;
+ }catch(e){out.textContent='公平基准计算失败：'+(e?.message||String(e))}
+ finally{btn.disabled=!validGroups.has(selected())||!Object.hasOwn(pairs(),selected())}
+}
 async function exportEvidence(){
  const out=$('createStatus'),period=selected();
  try{
@@ -187,6 +214,6 @@ async function copy(){
  catch(e){$('summary').focus();$('summary').select();$('compareStatus').textContent='自动复制不可用，已选中下方文字，长按即可复制。'}
 }
 $('refresh').onclick=refresh;$('period').onchange=updateView;$('create').onclick=create;$('compare').onclick=compare;
-$('export').onclick=exportEvidence;$('copy').onclick=copy;
+$('export').onclick=exportEvidence;$('baseline').onclick=calculateBaseline;$('copy').onclick=copy;
 refresh();
 </script></body></html>
