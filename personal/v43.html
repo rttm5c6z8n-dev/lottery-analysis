@@ -1,0 +1,42 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V4.3 连续预测观察与官方开奖对照</title>
+<style>body{margin:0;background:#101827;color:#eaf1ff;font:15px/1.7 system-ui}main{max-width:900px;margin:auto;padding:20px}section{background:#1d2b43;border:1px solid #40516e;border-radius:16px;padding:18px;margin:16px 0}button{background:#8bb8ff;color:#13253e;border:0;border-radius:8px;padding:12px 16px;font:inherit}button:disabled{opacity:.6}a{color:#9bc8ff}small{color:#b8c8dc}pre{white-space:pre-wrap;overflow-wrap:anywhere}.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:630px}td,th{padding:9px;border-bottom:1px solid #526581;text-align:left}h1{line-height:1.4}</style>
+</head><body><main><nav><a href="./">← V3.1</a> · <a href="./v40.html">V4.0 锁定预测</a> · <a href="./v42.html">V4.2 官网核验</a> · <a href="./v39.html">V3.9 正式成绩</a></nav>
+<h1>V4.3 · 连续预测观察</h1>
+<p>按开奖期号汇总已留档预测与官网开奖历史。5注属于同一期，不是5次独立开奖。此页面完全只读，不回填期号、不追加核验，也不修改原历史数据。</p>
+<section><h2>自动检查</h2><button id="refresh">重新读取本机预测与官网开奖</button><p id="status" role="status">正在初始化……</p><div id="summary"></div><small>官网两处页面一致仅对最新期有效；往期历史列表仅来自同一体彩管理中心官网的历史开奖页面，不能视为已双重确认。</small></section>
+<section><h2>按期观察</h2><div class="tablewrap"><table><thead><tr><th>期号</th><th>已留档注数</th><th>通过事前结构检查</th><th>开奖数据状态</th><th>最佳前区</th><th>完整5+2</th></tr></thead><tbody id="rows"></tbody></table></div><pre id="details"></pre></section>
+<section><h2>结论边界</h2><p>这是一张研究观察表，不会把往期开奖比对自动算成“事前预测成功”。本机保存时间可以修改，不能作为独立时间公证；从模型存档推导出的历史对照也不会自动纳入V3.9正式成绩。</p><p>尚未锁定未来期号时，显示0期预测属于正常状态。可前往 <a href="./v40.html">V4.0</a>，先核实未来目标期号与官方计划开奖时间，再留档完整5组。</p></section>
+</main><script type="module">
+import{buildProspectiveMonitor}from './v43-monitor-core.mjs';
+const $=id=>document.getElementById(id);
+function readJournal(){const raw=localStorage.getItem('lottery_v38_predictions');if(raw===null)return [];const parsed=JSON.parse(raw);if(!Array.isArray(parsed))throw Error('本机预测留档格式异常');return parsed}
+async function refresh(){
+ $('refresh').disabled=true;$('status').textContent='正在读取本机留档及官网开奖历史……';
+ $('summary').replaceChildren();$('rows').replaceChildren();$('details').textContent='';
+ try{
+  const journal=readJournal();
+  const res=await fetch('/api/dlt-results',{cache:'no-store',headers:{Accept:'application/json'}});
+  const data=await res.json();if(!res.ok)throw Error(data.error||'官方历史开奖接口不可用');
+  const report=buildProspectiveMonitor(journal,data);
+  $('status').textContent='官网最新识别 '+report.latestOfficialPeriod+' 期；双页面一致：'+(report.latestCrossPageAgreement?'是':'未确认')+'。这是一份只读观察报告。';
+  const sum=document.createElement('p');
+  sum.textContent='本机留档 '+report.storedTickets+' 注、'+report.periods+' 期；有官网历史开奖可比对 '+report.periodsWithOfficialData+' 期；格式异常 '+report.unsafeRecords+' 条。';
+  $('summary').append(sum);
+  const lines=[];
+  for(const row of report.rows){
+   const tr=document.createElement('tr');
+   for(const value of [row.period,row.storedTickets,row.eligibleTickets,row.sourceStatus,row.bestFront??'—',row.exactTickets??'—']){
+    const td=document.createElement('td');td.textContent=String(value);tr.append(td);
+   }
+   $('rows').append(tr);
+   lines.push(row.period+'期：'+row.sourceStatus);
+   for(const item of row.modelScores){
+    if(item.score)lines.push('  第'+(item.rank||'?')+'组：前区'+item.score.frontHits+'，后区'+item.score.backHits+'；'+(item.alreadyVerified?'原留档已人工核验':'仅只读观察，未写入核验'));
+   }
+  }
+  $('details').textContent=(lines.join('\n')||'暂无事前预测留档。已有V3.1研究号码仍然保存在原存档中，未丢失。')+'\n\n'+report.notes;
+ }catch(e){$('status').textContent='读取失败：'+(e?.message||String(e))+'。没有修改任何存档。';}
+ finally{$('refresh').disabled=false}
+}
+$('refresh').onclick=refresh;refresh();
+</script></body></html>
