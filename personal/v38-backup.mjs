@@ -1,4 +1,5 @@
 import{validateTicket,validatePeriod,verifyTicket}from './v38-core.mjs';
+import{auditMarkedBatches}from './five-batch-audit.mjs';
 export const BACKUP_FORMAT='lottery-personal-journal-backup-v1';
 export function recordIdentity(r){
  const period=validatePeriod(r.period);
@@ -33,6 +34,10 @@ export function mergeBackup(current,backup){
  if(backup.records.length>50000)throw Error('备份记录过多，停止导入');
  const present=new Set(),periods=new Set();
  for(const r of current){validateBackupRecord(r);const key=recordIdentity(r);if(present.has(key))throw Error('本机有重复记录：'+key);present.add(key);periods.add(r.period)}
+ const currentBatchAudit=auditMarkedBatches(current);
+ if(currentBatchAudit.issues.length)throw Error('本机存在不完整的5组锁定批次，已停止备份恢复以防覆盖');
+ const incomingBatchAudit=auditMarkedBatches(backup.records);
+ if(incomingBatchAudit.issues.length)throw Error('备份中含不完整或混合的5组锁定批次，已拒绝导入');
  const incoming=new Set(),added=[],incomingPeriods=new Map();
  for(const r of backup.records){
   validateBackupRecord(r);const key=recordIdentity(r);
@@ -53,6 +58,7 @@ export function mergeBackup(current,backup){
 }
 export function makeBackup(records,exportedAt){
  if(!Array.isArray(records))throw Error('存储格式异常');
-const seen=new Set();for(const r of records){validateBackupRecord(r);const key=recordIdentity(r);if(seen.has(key))throw Error('备份存在重复记录：'+key);seen.add(key)}
+if(auditMarkedBatches(records).issues.length)throw Error('存在不完整或混合的5组锁定批次，停止备份导出');
+ const seen=new Set();for(const r of records){validateBackupRecord(r);const key=recordIdentity(r);if(seen.has(key))throw Error('备份存在重复记录：'+key);seen.add(key)}
  return{format:BACKUP_FORMAT,exportedAt,records};
 }
