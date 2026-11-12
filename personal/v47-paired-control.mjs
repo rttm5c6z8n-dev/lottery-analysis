@@ -207,3 +207,56 @@ export async function verifyExportedPairStandalone(record,subtle=globalThis.cryp
  return{valid:true,period:p.period,digest,scope:'standalone-untrusted-time',
   notice:'仅校验JSON内部一致性、号码合法性和随机种子可重现性，不能核实当时是否真在开奖前、模型是否已在其他设备锁定或第三方可信时间。'};
 }
+
+
+// Post-draw descriptive report. The primary preregistered comparison remains
+// best-front-hits-per-draw. All other numbers are marked descriptive.
+export function formatPairedDrawReport(score,draw,benchmark){
+ if(!score||!score.model||!score.control||!Array.isArray(score.model.ticketScores)||!Array.isArray(score.control.ticketScores))
+  throw Error('缺少可核验的开奖评分');
+ const validDraw=validateTicket(draw.front.join(' '),draw.back.join(' '));
+ if(!benchmark||benchmark.total!==324632||!Number.isFinite(benchmark.expectedDelta))
+  throw Error('缺少完整的公平开奖结构基准');
+ const fmt=n=>String(n).padStart(2,'0');
+ const stringify=t=>t.front.map(fmt).join(' ')+' + '+t.back.map(fmt).join(' ');
+ const row=(name,side)=>[
+  name+'：最佳前区命中 '+side.bestFront+'/5，最佳前区对应后区最高 '+side.bestBackAtBestFront+'/2',
+  '  5注命中：'+side.ticketScores.map((x,i)=>(i+1)+'号 '+x.frontHits+'+'+x.backHits).join('；'),
+  '  命中一等奖：'+(side.firstPrize?'是':'否')+'；二等奖：'+(side.secondPrize?'是':'否')
+ ].join('\n');
+ const observed=score.bestFrontDelta,excess=observed-benchmark.expectedDelta;
+ const signed=n=>(n>=0?'+':'')+n.toFixed(4);
+ return '第'+score.period+'期 · 已开奖配对核对\n'+
+  '开奖号码：'+stringify(validDraw)+'\n'+
+  row('模型5注',score.model)+'\n'+row('随机5注',score.control)+'\n\n'+
+  '【预先设定的主指标】最佳前区命中差（模型−随机）：'+(observed>0?'+':'')+observed+'\n'+
+  '【公平开奖结构基准】理论命中差：'+signed(benchmark.expectedDelta)+'\n'+
+  '【辅助观察】实际差减理论差：'+signed(excess)+'\n'+
+  '【理论胜负分布】模型 '+(benchmark.modelWinProbability*100).toFixed(2)+'%，随机 '+
+    (benchmark.controlWinProbability*100).toFixed(2)+'%，平局 '+(benchmark.tieProbability*100).toFixed(2)+'%\n'+
+  '说明：本期只是一次观测；理论基准按固定号码精确枚举，不是事后调整预注册主指标。';
+}
+
+export function summarizeCalibratedPairedRounds(entries){
+ if(!Array.isArray(entries))throw Error('校准统计输入不是数组');
+ if(!entries.length)return{periods:0,observedMeanDelta:null,expectedMeanDelta:null,meanExcess:null,
+  expectedModelWins:null,expectedControlWins:null,notice:'尚无已开奖且通过完整核验的配对期号。'};
+ const seen=new Set();
+ let actual=0,expected=0,winExpected=0,lossExpected=0;
+ for(const entry of entries){
+  const score=entry?.score,b=entry?.benchmark;
+  if(!score||!/^\d{5}$/.test(String(score.period))||seen.has(score.period)||
+   !Number.isInteger(score.bestFrontDelta)||Math.abs(score.bestFrontDelta)>5||
+   !b||b.total!==324632||!Number.isFinite(b.expectedDelta)||
+   !Number.isFinite(b.modelWinProbability)||!Number.isFinite(b.controlWinProbability)||
+   b.modelWinProbability<0||b.modelWinProbability>1||
+   b.controlWinProbability<0||b.controlWinProbability>1)throw Error('存在重复期号或不完整的基准评分');
+  seen.add(score.period);
+  actual+=score.bestFrontDelta;expected+=b.expectedDelta;
+  winExpected+=b.modelWinProbability;lossExpected+=b.controlWinProbability;
+ }
+ const periods=entries.length,observedMeanDelta=actual/periods,expectedMeanDelta=expected/periods;
+ return{periods,observedMeanDelta,expectedMeanDelta,meanExcess:observedMeanDelta-expectedMeanDelta,
+  expectedModelWins:winExpected,expectedControlWins:lossExpected,
+  notice:'公平基准仅调整不同号码覆盖结构的预期差异；实际超出基准不等于统计显著，也不能证明下一期可预测。请保持原始锁定、原指标和真实成绩可追溯。'};
+}
