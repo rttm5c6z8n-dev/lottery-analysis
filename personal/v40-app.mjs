@@ -2,6 +2,7 @@ import{chooseResult,bridgeRecord,eligibleArchivedResults,buildFiveRecords,append
 import{readResearchData}from './real-data-check.mjs';
 import{latestLocalHistory,describeFivePicks,preflightTarget}from './v40-preflight.mjs';
 import{proposeUpcomingDraw,applyCandidatePeriod}from './v40-next-draw.mjs';
+import{verifyLiveLockGate}from './v40-live-lock-gate.mjs';
 const $=id=>document.getElementById(id),KEY='lottery_v38_predictions';
 let results=[],busy=false;
 function status(message){$('status').textContent=message}
@@ -50,28 +51,53 @@ function checkPreflight(){
  $('preflightStatus').textContent=(result.ok?'本机时间与历史期号检查通过（非官方认证）':'不能作为事前预测锁定')+'\n'+result.errors.map(x=>'错误：'+x).concat(result.warnings.map(x=>'提醒：'+x)).join('\n');
  return result;
 }
-function saveAll(){
- try{
-  if(!checkPreflight().ok)throw Error('期号或计划时间检查未通过，请先纠正');
-  if(!$('confirmed').checked)throw Error('先核实未来期号、计划开奖时间及公告链接');
-  const batch=buildFiveRecords({results,resultId:$('result').value,period:$('period').value,now:new Date().toISOString(),drawAt:$('drawAt').value,sourceUrl:$('sourceUrl').value});
-  const next=appendFiveRecords(readJournal(),batch);
-  localStorage.setItem(KEY,JSON.stringify(next));
-  $('saved').textContent='已一次性保存该期全部5组研究号码（本机留档，不是独立时间公证）。';
- }catch(e){$('saved').textContent='5组保存未执行：'+e.message}
+let saving=false;
+function lockInputs(){
+ if(saving)throw Error('已有锁定流程正在执行');
+ if(!checkPreflight().ok)throw Error('本机期号或时间预检查未通过');
+ if(!$('confirmed').checked)throw Error('请先独立核实官方目标期号、开奖时间和公告链接');
+ return{resultId:$('result').value,rank:Number($('rank').value),
+  period:$('period').value,drawAt:$('drawAt').value,sourceUrl:$('sourceUrl').value};
 }
-function saveOne(){
- try{
-  if(!checkPreflight().ok)throw Error('期号或计划时间检查未通过，请先纠正');
-  if(!$('confirmed').checked)throw Error('先核实未来期号、计划开奖时间及公告链接');
-  const chosen=chooseResult(results,$('result').value,Number($('rank').value));
-  const item=bridgeRecord({result:chosen,period:$('period').value,now:new Date().toISOString(),drawAt:$('drawAt').value,sourceUrl:$('sourceUrl').value});
-  const existing=readJournal();
-  if(existing.some(x=>x.period===item.period))throw Error('该期已有留档，不允许追加或覆盖');
-  localStorage.setItem(KEY,JSON.stringify([...existing,item]));
-  $('saved').textContent='已保存第'+chosen.rank+'组。该期不能再追加其他组。';
- }catch(e){$('saved').textContent='单组保存未执行：'+e.message}
+function sameInputs(v){
+ return $('result').value===v.resultId&&Number($('rank').value)===v.rank&&$('period').value===v.period&&
+  $('drawAt').value===v.drawAt&&$('sourceUrl').value===v.sourceUrl&&$('confirmed').checked;
 }
+async function lockedSave(all){
+ let inputs;
+ try{inputs=lockInputs()}catch(e){$('saved').textContent='未保存：'+e.message;return}
+ saving=true;
+ $('save').disabled=true;$('saveFive').disabled=true;
+ $('saved').textContent='正在重新查询官网最新开奖期号并检查锁定条件……';
+ try{
+  const res=await fetch('/api/dlt-results',{cache:'no-store',headers:{Accept:'application/json'}});
+  const data=await res.json();
+  if(!res.ok)throw Error(data.error||'官网开奖结果查询不可用');
+  const now=new Date().toISOString(),gate=verifyLiveLockGate({payload:data,period:inputs.period,drawAt:inputs.drawAt,now});
+  if(!sameInputs(inputs))throw Error('查询期间表单发生变化，请重新检查再保存');
+  if(!checkPreflight().ok)throw Error('网络查询后原计划时间已不符合事前检查');
+  const original=readJournal();
+  if(original.some(x=>x?.period===inputs.period))throw Error('该期已经存在留档，禁止覆盖或事后追加');
+  if(all){
+   const batch=buildFiveRecords({results,resultId:inputs.resultId,period:inputs.period,now,
+    drawAt:inputs.drawAt,sourceUrl:inputs.sourceUrl});
+   const stamped=batch.map(x=>({...x,liveGate:gate}));
+   const next=appendFiveRecords(original,stamped);
+   localStorage.setItem(KEY,JSON.stringify(next));
+   $('saved').textContent='已一次性锁定完整5组。锁定时重新读取官网最近已开奖 '+gate.latestPublished+
+    ' 期；仅为本机候选留档，不是独立可信时间公证。';
+  }else{
+   const chosen=chooseResult(results,inputs.resultId,inputs.rank);
+   const item=bridgeRecord({result:chosen,period:inputs.period,now,drawAt:inputs.drawAt,sourceUrl:inputs.sourceUrl});
+   localStorage.setItem(KEY,JSON.stringify([...original,{...item,liveGate:gate}]));
+   $('saved').textContent='已保存该期单组。锁定时官网最近已开奖 '+gate.latestPublished+
+    ' 期；该期之后不能再补充其他组。';
+  }
+ }catch(e){$('saved').textContent='锁定未执行，原始数据未修改：'+(e?.message||String(e))}
+ finally{saving=false;$('save').disabled=false;$('saveFive').disabled=false}
+}
+function saveAll(){return lockedSave(true)}
+function saveOne(){return lockedSave(false)}
 async function refreshOfficial(){
  const btn=$('officialRefresh'),out=$('officialStatus');btn.disabled=true;out.textContent='正在尝试读取官网公告标题……';
  try{
