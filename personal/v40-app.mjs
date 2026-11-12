@@ -160,6 +160,7 @@ async function submitServerReceipt(){
   if(data.receipt.digest!==check.digest||data.receipt.period!==period)throw Error('服务器回执和本机指纹不一致，已拒绝存入索引');
   index[period]={id:data.receipt.id,digest:check.digest,receivedAt:data.receipt.receivedAt};
   localStorage.setItem(SERVER_RECEIPTS,JSON.stringify(index));
+  $('serverReceiptId').value=data.receipt.id;
   out.textContent='服务器已确认持久化接收指纹。回执ID：'+data.receipt.id+
     '\n服务器记录时间：'+data.receipt.receivedAt+'\nSHA-256：'+check.digest+
     '\n仅证明服务器数据库收到该摘要的时间，不是第三方法定公证。';
@@ -173,11 +174,12 @@ async function checkServerReceipt(){
   const records=currentLockedPeriod(),local=await inspectLockProof(records);
   if(!local.valid)throw Error('本机指纹无效，先检查原始留档');
   const saved=getReceiptIndex()[records[0].period];
-  if(!saved?.id)throw Error('当前浏览器未保存该期回执ID；不能据此断言服务器没有记录');
-  const res=await fetch('/api/lock-receipts?id='+encodeURIComponent(saved.id),{cache:'no-store'});
+  const id=$('serverReceiptId').value.trim()||saved?.id;
+  if(!/^[a-f0-9-]{36}$/i.test(id||''))throw Error('请填有效服务器回执ID，或在本机先保存一份回执');
+  const res=await fetch('/api/lock-receipts?id='+encodeURIComponent(id),{cache:'no-store'});
   const data=await res.json();
   if(!res.ok||!data.persisted||!data.receipt)throw Error(data.error||'服务器未返回持久化回执');
-  if(data.receipt.id!==saved.id||data.receipt.period!==records[0].period||data.receipt.digest!==local.digest)
+  if(data.receipt.id!==id||data.receipt.period!==records[0].period||data.receipt.digest!==local.digest)
    throw Error('服务器回执与本机记录不一致');
   out.textContent='服务器回执查询一致。第'+data.receipt.period+'期\n回执ID：'+saved.id+
    '\n服务器接收时间：'+data.receipt.receivedAt+'\n摘要：'+data.receipt.digest+
