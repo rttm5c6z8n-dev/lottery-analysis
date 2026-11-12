@@ -28,7 +28,7 @@ export function bridgeRecord({result,period,now,drawAt,sourceUrl}){
  let official;try{official=new URL(sourceUrl)}catch{throw Error('需要提供目标期号和开奖时间的公告链接')}
  if(official.protocol!=='https:'||official.username||official.password)throw Error('公告必须是有效HTTPS地址');
  const host=official.hostname.toLowerCase();
- if(!(host==='sport.gov.cn'||host.endsWith('.sport.gov.cn')||host==='lottery.gov.cn'||host.endsWith('.lottery.gov.cn')))throw Error('请填写中国体育彩票管理相关官方网站的公告链接');
+ if(!(host==='sport.gov.cn'||host.endsWith('.sport.gov.cn')||host==='lottery.gov.cn'||host.endsWith('.lottery.gov.cn')||host==='gstc.org.cn'||host.endsWith('.gstc.org.cn')))throw Error('请填写中国体育彩票管理相关官方网站的具体开奖计划或公告链接');
  const record=buildRecord({period,front:result.nums.slice(0,5).join(' '),back:result.nums.slice(5).join(' '),method:'V3.1 第'+result.rank+'组 / '+String(result.version||'未知'),createdAt:now});
  return{...record,source:{type:'v31-result',resultId:result.resultId,rank:result.rank,generatedAt:result.generatedAt,trainId:result.trainId,reportId:result.reportId,weightsetId:result.weightsetId,throughPeriod:result.throughPeriod,searchMethod:result.searchMethod},
  targetEvidence:{plannedDrawAt:drawAt,sourceUrl:official.href,verification:'人工核实声明，未自动校验公告内容'},
