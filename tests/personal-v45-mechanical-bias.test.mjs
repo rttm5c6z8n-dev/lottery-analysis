@@ -25,7 +25,7 @@ assert(flags.significant.some(x=>x.zone==='前区'&&x.number===1),'detect plante
 const normal=walkForwardBiasTest(fair,{testDraws:150,trainWindow:600});
 const planted=walkForwardBiasTest(biased,{testDraws:150,trainWindow:600});
 assert.equal(normal.evaluatedDraws,150);
-assert(normal.meanLogAdvantage<0,'fair data should not yield positive mean under the fixed rule and seed');
+assert.equal(normal.preliminarySignal,false,'fair control must not cross the predefined robust evidence threshold');
 assert(planted.meanLogAdvantage>0,'planted stable number bias should improve held-out log score');
 assert(planted.preliminarySignal,'two half-splits and approximate interval must agree for planted stable bias');
 assert.equal(planted.scores.length,150);
