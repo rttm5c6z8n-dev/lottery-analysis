@@ -29,7 +29,7 @@ export function decayWeights(rows,end,config,zone){
  const start=zone==='front'?0:5,k=zone==='front'?5:2;
  const counts=Array(n).fill(0);let total=0;
  for(let i=end-TRAIN;i<end;i++){
-  const age=end-i-1,w=Math.exp2(-age/halfLife);total+=w;
+  const age=end-i-1,w=Math.exp(-Math.LN2*age/halfLife);total+=w;
   for(const ball of rows[i].nums.slice(start,start+k))counts[ball-1]+=w;
  }
  return counts.map(count=>Math.max(1-limit,Math.min(1+limit,((count+prior*base)/(total+prior))/base)));
