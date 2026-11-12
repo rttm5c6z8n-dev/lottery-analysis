@@ -26,25 +26,30 @@ section{background:#1e2b43;border:1px solid #425674;border-radius:16px;padding:1
 <pre id="number29Status">尚未运行；不把全历史筛选的29号误称为独立验证结果。</pre>
 <div class="scroll"><table><thead><tr><th>时间区间</th><th>期数</th><th>29出现</th><th>随机期望</th><th>偏高/低</th></tr></thead><tbody id="number29Rows"></tbody></table></div>
 <p><small>29号是看完全部2946期之后才选出的研究对象，因而对它的历史分段、最近400期评分也属于事后探索。只有未来开奖前固定规则并连续验证，才能得到真正独立的预测证据。</small></p></section>
-<section><h2>三、相邻期开奖重复率检验</h2>
+<section><h2>三、全47号时间阶段差异扫描</h2>
+<p>避免只挑选29号和有利时间段：用固定的300期步长，要求切点前后至少600期，扫描前区35个及后区12个号码，对全部比较一起校正。可能发现某个时间段发生频率变化，但不能仅据此推断机械故障或人为操作。</p>
+<pre id="regimeStatus" role="status">尚未扫描。</pre>
+<div class="scroll"><table><thead><tr><th>区</th><th>号码</th><th>切点</th><th>前段频率</th><th>后段频率</th><th>282项校正p</th></tr></thead><tbody id="regimeRows"></tbody></table></div>
+<small>属于探索性历史统计，即使校正p值偏低，也需要新的官方设备资料和未来开奖进行验证。</small></section>
+<section><h2>四、相邻期开奖重复率检验</h2>
 <p>分别检查连续两期开奖的前区、后区重复个数。用互不重叠的相邻期次对，与公平无放回模型的超几何期望比较，避免一期开奖结果被反复计入两个相邻样本。</p>
 <pre id="serialStatus">尚未运行；异常重复也不能直接证明存在人为干预。</pre>
 <small>两项检验分别校正，不与前述94项频率检验混为一个确认性统计结论。开奖数据若有缺期会跳过相关配对。</small></section>
-<section><h2>四、滚动样本外预测对照</h2>
+<section><h2>五、滚动样本外预测对照</h2>
 <p>固定方法：每次只能读取此前600期开奖；统计47个号码的出现次数，强收缩到均匀概率，并以限幅权重对下一期进行<strong>无放回抽样的完整5+2概率评价</strong>。连续检验最近400期，不得提前看到后面的号码。</p>
 <pre id="walkStatus">尚无结果</pre>
 <small>对数概率评分大于公平模型表示平均预测概率有改善，但仅是研究性证据。单次历史回测、近似统计区间和反复查看都不能代替未来事前锁定验证。若数据不足，页面将明确停止。</small>
 </section>
-<section><h2>五、一等奖与二等奖的两套候选研究</h2>
+<section><h2>六、一等奖与二等奖的两套候选研究</h2>
 <p>使用完全相同的历史权重，但把目标分开：一等奖要求后区两球全中，二等奖要求后区恰好中一个。先完成上面的滚动检验，然后自动给出各5注<strong>条件概率模型下</strong>的研究候选，并显示公平随机基准。</p>
 <p id="prizeGate" role="status">尚未运行滚动检验，不能生成研究候选。</p>
 <div id="prizeTables"></div><pre id="prizeNote"></pre>
 <small>这里只考察前区权重最高15个号码的3003种五数组合，以及后区全部66种两数组合。历史模型算出的“倍率”不是现实中奖概率的保证；未通过样本外验证时，候选一律标为不具预测优势证据。不会自动送到V4.0锁定，也不会改动原V3.1结果。</small>
 </section>
-<section><h2>六、官方摇奖球组与实际出球顺序</h2><p>我查到官方公告中记录了每期使用的摇奖球组，以及号码被摇出的先后顺序。这两个字段没有包含在原来的2946期排序号码里，必须单独采集。球组是在开奖前临时选择的，因此当前期的球组记录不能拿来假装提前知道下一期会用哪一套。</p>
+<section><h2>七、官方摇奖球组与实际出球顺序</h2><p>我查到官方公告中记录了每期使用的摇奖球组，以及号码被摇出的先后顺序。这两个字段没有包含在原来的2946期排序号码里，必须单独采集。球组是在开奖前临时选择的，因此当前期的球组记录不能拿来假装提前知道下一期会用哪一套。</p>
 <label>要查询的2026年已开奖期号 <input id="machinePeriod" inputmode="numeric" value="26129" maxlength="5" style="padding:10px;background:#111e35;border:1px solid #526781;border-radius:8px;color:#fff"></label>
 <button id="machineFetch" type="button">读取该期官方球组及出球顺序</button><pre id="machineStatus">尚未读取；仅在主动查询后记录到独立研究元数据中。</pre><pre id="machineSummary"></pre><p><small>来源：省级体彩机构该期开奖公告。只读保存额外的球组元数据，不修改V3.1原始历史、训练和预测结果；目前样本不足以推断物理偏差。</small></p></section>
-<section><h2>七、一、二等奖的数学基准</h2>
+<section><h2>八、一、二等奖的数学基准</h2>
 <div class="scroll"><table><thead><tr><th>覆盖</th><th>一等奖（5+2）</th><th>二等奖（5+1）</th></tr></thead><tbody id="odds"></tbody></table></div>
 <p>此表假设5注的<strong>前区5号码组合互不相同</strong>；在完全公平的摇奖中，覆盖不同号码不会令每注中奖概率更大，只影响不同注的相关性及组合覆盖方式。</p>
 </section>
@@ -59,6 +64,7 @@ import{exitOrderByBallSet}from './v45-exit-order.mjs';
 import{buildPrizeHypotheses}from './v45-prize-target.mjs';
 import{serialOverlapAudit}from './v45-serial-overlap.mjs';
 import{analyzeTemporalStability}from './v45-number-stability.mjs';
+import{scanChronologicalRegimes}from './v45-regime-scan.mjs';
 const $=id=>document.getElementById(id);
 let reportText='';
 function odds(){
@@ -131,6 +137,23 @@ function drawNumber29(data){
   selected.interval95Approx.map(x=>x.toFixed(6)).join('，')+']。'+
   '\n'+data.interpretation;
 }
+function showRegime(res){
+ $('regimeStatus').textContent='固定切点 '+res.cutpoints.join('、')+'（按历史从早到晚的期数位置）；共'+res.tests+
+  '项比较；多重校正后超过探索阈值 '+res.correctedSignals.length+'项。以下显示全47号较突出的结果，并列出29号最显著的时间切点。\\n'+res.note;
+ const selected=[...res.top.slice(0,8),...res.number29.slice(0,1)].filter((r,i,a)=>a.findIndex(x=>x.zone===r.zone&&x.number===r.number&&x.cut===r.cut)===i);
+ $('regimeRows').replaceChildren();
+ for(const item of selected){
+  const row=document.createElement('tr');
+  for(const value of [item.zone,String(item.number).padStart(2,'0'),
+   item.firstEndPeriod+' / '+item.secondStartPeriod,
+   item.earlyHits+'/'+item.earlyDraws+' ('+(100*item.earlyRate).toFixed(2)+'%)',
+   item.lateHits+'/'+item.lateDraws+' ('+(100*item.lateRate).toFixed(2)+'%)',
+   item.adjustedP<0.0001?item.adjustedP.toExponential(3):item.adjustedP.toFixed(5)]){
+   const td=document.createElement('td');td.textContent=value;row.append(td);
+  }
+  $('regimeRows').append(row);
+ }
+}
 async function run(){
  const btn=$('run');btn.disabled=true;
  reportText='';$('copySummary').disabled=true;$('copySummaryBottom').disabled=true;$('summaryText').value='';
@@ -139,6 +162,7 @@ async function run(){
  $('walkStatus').textContent='正在计算……';$('historyInfo').textContent='';
  $('serialStatus').textContent='正在分析相邻期次的重复个数……';
  $('number29Status').textContent='正在分析29号时间变化和前600期滚动对照……';$('number29Rows').replaceChildren();
+ $('regimeStatus').textContent='正在检查所有47个号码的时间分布……';$('regimeRows').replaceChildren();
  $('prizeGate').textContent='等待真实历史滚动检验完成……';$('prizeTables').replaceChildren();$('prizeNote').textContent='';
  try{
   const h=await history(),rows=h.rows;
@@ -147,6 +171,8 @@ async function run(){
   await new Promise(resolve=>setTimeout(resolve,30));
   const temporal=analyzeTemporalStability(rows,{number:29,zone:'front'});
   drawNumber29(temporal);
+  const regime=scanChronologicalRegimes(rows);
+  showRegime(regime);
   const freq=biasFrequencyTests(rows);
   $('frequencyStatus').textContent='执行 '+freq.testsExecuted+'项检验；校正后显著异常 '+freq.significant.length+'项（统计显著不等于预测有效）。';
   for(const x of freq.all.slice(0,12)){
@@ -173,6 +199,10 @@ async function run(){
     '，最近400期'+temporal.recent.hits+'/'+temporal.recent.draws+'（期望'+temporal.recent.expectedHits.toFixed(1)+'）',
    '29号滚动概率评分（事后选号探索，非独立验证）：'+temporal.discoveredNumberForwardScore.meanLogAdvantage.toFixed(7)+
     '，近似区间 '+temporal.discoveredNumberForwardScore.interval95Approx.map(x=>x.toFixed(7)).join(' 至 '),
+   '全47号固定时间切点扫描：'+regime.tests+'项，多重校正后异常 '+regime.correctedSignals.length+'项',
+   ...regime.number29.slice(0,2).map(r=>'29号切点 '+r.firstEndPeriod+'—'+r.secondStartPeriod+
+    '：前段 '+r.earlyHits+'/'+r.earlyDraws+'，后段 '+r.lateHits+'/'+r.lateDraws+
+    '，校正p='+r.adjustedP.toExponential(4)),
    '切点前600期选出的最热号码：'+temporal.selectedBeforeHoldout.number+
     '，其后400期滚动评分：'+temporal.pretestSelectedForwardScore.meanLogAdvantage.toFixed(7),
    ...temporal.blocks.map(x=>'29号 '+x.periodStart+'—'+x.periodEnd+
@@ -197,7 +227,7 @@ async function run(){
   $('conclusion').textContent=(test.preliminarySignal?'样本外得到初步值得关注的统计差异；必须继续在未来未发生的开奖中预注册验证。':'现有预设预测方法尚未通过稳健样本外检验，不能据此选择所谓更可能中一、二等奖的号码。')+
    '\n\n全局及近期频率校正后显著异常：'+freq.significant.length+'项。\n'+freq.caveat+'\n\n'+test.caveat;
   $('status').textContent='真实历史研究计算完成；仅生成只读研究报告，没有写入预测记录或修改历史库。';
- }catch(e){$('status').textContent='检验未完成：'+(e?.message||String(e))+'；原始数据未修改。';$('prizeGate').textContent='数据检验未完成，不能给出研究候选。';$('serialStatus').textContent='数据检验未完成，不能报告重复率结果。';$('number29Status').textContent='时间稳定性分析未完成；不能给出29号的预测优势判断。';$('conclusion').textContent='未能取得可信分析结果，不能推测下一期一等奖或二等奖。'}
+ }catch(e){$('status').textContent='检验未完成：'+(e?.message||String(e))+'；原始数据未修改。';$('prizeGate').textContent='数据检验未完成，不能给出研究候选。';$('serialStatus').textContent='数据检验未完成，不能报告重复率结果。';$('number29Status').textContent='时间稳定性分析未完成；不能给出29号的预测优势判断。';$('regimeStatus').textContent='时间阶段扫描未完成。';$('conclusion').textContent='未能取得可信分析结果，不能推测下一期一等奖或二等奖。'}
  finally{btn.disabled=false}
 }
 function machineRows(){
