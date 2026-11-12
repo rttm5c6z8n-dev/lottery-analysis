@@ -26,7 +26,10 @@ section{background:#1e2b43;border:1px solid #425674;border-radius:16px;padding:1
 <pre id="walkStatus">尚无结果</pre>
 <small>对数概率评分大于公平模型表示平均预测概率有改善，但仅是研究性证据。单次历史回测、近似统计区间和反复查看都不能代替未来事前锁定验证。若数据不足，页面将明确停止。</small>
 </section>
-<section><h2>三、一、二等奖的数学基准</h2>
+<section><h2>三、官方摇奖球组与实际出球顺序</h2><p>我查到官方公告中记录了每期使用的摇奖球组，以及号码被摇出的先后顺序。这两个字段没有包含在原来的2946期排序号码里，必须单独采集。球组是在开奖前临时选择的，因此当前期的球组记录不能拿来假装提前知道下一期会用哪一套。</p>
+<label>要查询的2026年已开奖期号 <input id="machinePeriod" inputmode="numeric" value="26129" maxlength="5" style="padding:10px;background:#111e35;border:1px solid #526781;border-radius:8px;color:#fff"></label>
+<button id="machineFetch" type="button">读取该期官方球组及出球顺序</button><pre id="machineStatus">尚未读取；仅在主动查询后记录到独立研究元数据中。</pre><pre id="machineSummary"></pre><p><small>来源：省级体彩机构该期开奖公告。只读保存额外的球组元数据，不修改V3.1原始历史、训练和预测结果；目前样本不足以推断物理偏差。</small></p></section>
+<section><h2>四、一、二等奖的数学基准</h2>
 <div class="scroll"><table><thead><tr><th>覆盖</th><th>一等奖（5+2）</th><th>二等奖（5+1）</th></tr></thead><tbody id="odds"></tbody></table></div>
 <p>此表假设5注的<strong>前区5号码组合互不相同</strong>；在完全公平的摇奖中，覆盖不同号码不会令每注中奖概率更大，只影响不同注的相关性及组合覆盖方式。</p>
 </section>
@@ -36,6 +39,7 @@ section{background:#1e2b43;border:1px solid #425674;border-radius:16px;padding:1
 import{readResearchData,verifySnapshotFingerprints}from './real-data-check.mjs';
 import{valid}from './v31-core.mjs';
 import{biasFrequencyTests,walkForwardBiasTest,prizeOdds}from './v45-mechanical-bias.mjs';
+import{summarizeBallSetMetadata}from './v45-ballset-core.mjs';
 const $=id=>document.getElementById(id);
 function odds(){
  const p=$('odds');p.replaceChildren();
@@ -89,5 +93,40 @@ async function run(){
  }catch(e){$('status').textContent='检验未完成：'+(e?.message||String(e))+'；原始数据未修改。';$('conclusion').textContent='未能取得可信分析结果，不能推测下一期一等奖或二等奖。'}
  finally{btn.disabled=false}
 }
+function machineRows(){
+ const raw=localStorage.getItem('lottery_v45_machine_metadata');
+ if(!raw)return[];
+ let rows;
+ try{rows=JSON.parse(raw)}catch{throw Error('球组元数据缓存不可解析，拒绝覆盖')}
+ if(!Array.isArray(rows))throw Error('球组元数据缓存结构异常');
+ return rows;
+}
+function machineSummary(){
+ const groups=summarizeBallSetMetadata(machineRows());
+ $('machineSummary').textContent='已单独记录的球组样本：\n'+groups.map(x=>'第'+x.ballSet+'套：'+x.issues+'期'+(x.enoughForExploratoryFrequency?'（达到初步频率样本门槛，仍需样本外验证）':'（样本不足，不能检验球组偏差）')).join('\n');
+}
+async function machineFetch(){
+ const btn=$('machineFetch'),out=$('machineStatus'),period=$('machinePeriod').value.trim();
+ btn.disabled=true;out.textContent='正在向省级体彩官网读取第'+period+'期开奖结果公告……';
+ try{
+  if(!/^26\d{3}$/.test(period))throw Error('当前自动查询只支持2026年5位大乐透期号');
+  const res=await fetch('/api/dlt-machine?period='+encodeURIComponent(period),{cache:'no-store'});
+  const body=await res.json();
+  if(!res.ok)throw Error(body.error||'官网球组数据接口不可用');
+  if(body.period!==period||![1,2,3].includes(body.ballSet)||body.drawOrder.front.length!==5||body.drawOrder.back.length!==2)throw Error('球组信息不完整');
+  const current=machineRows(),old=current.find(x=>x.period===period);
+  if(old&&(old.ballSet!==body.ballSet||JSON.stringify(old.numbers)!==JSON.stringify(body.numbers)||JSON.stringify(old.drawOrder)!==JSON.stringify(body.drawOrder)))
+   throw Error('该期已保存的球组信息与官网本次返回不一致，停止覆盖，请人工核实来源');
+  if(!old){if(current.length>=500)throw Error('球组元数据存储已达500期限制');localStorage.setItem('lottery_v45_machine_metadata',JSON.stringify([...current,body]))}
+  const pad=n=>String(n).padStart(2,'0');
+  out.textContent='已取得第'+period+'期省级体彩官方公告：\n使用第'+body.ballSet+'套摇奖球\n前区出球顺序：'+body.drawOrder.front.map(pad).join(' ')+'\n后区出球顺序：'+body.drawOrder.back.map(pad).join(' ')+
+    '\n排序后开奖号码：'+body.numbers.front.map(pad).join(' ')+' + '+body.numbers.back.map(pad).join(' ')+
+    '\n源公告：'+body.source+'\n该信息是在本期开奖后公布的。';
+  machineSummary();
+ }catch(e){out.textContent='读取失败：'+(e?.message||String(e))+'。未修改原始历史或已有球组记录。'}
+ finally{btn.disabled=false}
+}
+$('machineFetch').onclick=machineFetch;
+machineSummary();
 $('run').onclick=run;odds();
 </script></body></html>
