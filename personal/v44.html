@@ -38,7 +38,9 @@ async function run(){
   const r=archives.find(x=>x.id===$('archive').value);
   if(!r)throw Error('没有选中的完整存档');
   await new Promise(resolve=>setTimeout(resolve,30));
-  const result=simulateFixedFive({picks:r.picks,actualDraw:official,rounds:20000,seed:20261112});
+  const modelSaved=Date.parse(r.generatedAt),drawDate=official?Date.parse(official.date+'T23:59:59+08:00'):NaN;
+  const allowedActual=official&&Number(r.throughPeriod)<Number(official.period)&&Number.isFinite(modelSaved)&&modelSaved<=drawDate?official:null;
+  const result=simulateFixedFive({picks:r.picks,actualDraw:allowedActual,rounds:20000,seed:20261112});
   $('hist').replaceChildren();
   for(let i=0;i<=5;i++){
    const tr=document.createElement('tr');
