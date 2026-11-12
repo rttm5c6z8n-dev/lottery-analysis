@@ -1,0 +1,93 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V4.5 物理开奖偏差研究与样本外检验</title>
+<style>
+body{background:#101827;color:#eaf1ff;margin:0;font:15px/1.65 system-ui}main{max-width:930px;margin:auto;padding:20px}
+section{background:#1e2b43;border:1px solid #425674;border-radius:16px;padding:19px;margin:17px 0}a{color:#9bc8ff}button{padding:12px 17px;background:#91b7ff;color:#11243b;border:0;border-radius:9px;font:inherit}button:disabled{opacity:.55}h1{line-height:1.3;font-size:30px}h2{font-size:21px}small{color:#b8c8dc}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;min-width:540px}td,th{padding:8px;border-bottom:1px solid #536580;text-align:left}.scroll{overflow-x:auto}strong{font-weight:700}.warn{color:#f6cca3}
+</style></head><body><main>
+<nav><a href="./">← V3.1 研究</a> · <a href="./v44.html">V4.4 随机基准</a> · <a href="./v40.html">V4.0 正式锁定</a></nav>
+<h1>V4.5 · 开奖机物理偏差研究</h1>
+<p>目标：寻找是否存在可重复的非随机偏差，特别关注它能否改善前区5个号码的事前概率评估。<strong>不凭热号、遗漏、所谓人控推断必中。</strong></p>
+<section><h2>研究对象与证据边界</h2>
+<p>官方资料指出，大乐透采用气流搅拌式摇奖机，摇奖前有试机，正式摇奖球从多套中临时抽取并检查。物理上，气流、质量、尺寸、摩擦可能影响轨迹；但若缺少每期设备编号、球组、测量参数与可复核视频，不能把历史频率异常归因为设备或人为操作。</p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://www.sport.gov.cn/n20001280/n20745751/n20767297/c21164292/content.html">体彩摇奖机工作原理（国家体育总局）</a> · <a target="_blank" rel="noopener noreferrer" href="https://www.sport.gov.cn/n20001280/n20067608/n20067637/c24514131/content.html">摇奖球组及现场管理</a></p>
+</section>
+<section><h2>读取自己的历史数据并运行检验</h2>
+<p>读取V3.1中保存的历史快照，先检查每期7个号码格式、重复期号和快照SHA-256。不会修改任何记录，也不会重新进行2142万种组合搜索。</p>
+<button id="run" type="button">运行94项频率检验＋滚动样本外验证</button>
+<p id="status" role="status">尚未运行；暂无真实历史检验结论。</p>
+<pre id="historyInfo"></pre>
+</section>
+<section><h2>一、号码频率异常检验</h2>
+<p>35个前区及12个后区，共47个号码；分别检验全部历史和最近300期，共94项。采用精确二项分布双侧检验，并对94次比较进行Bonferroni校正，避免把多次尝试中偶然最极端的热号当规律。</p>
+<p id="frequencyStatus">尚无结果</p>
+<div class="scroll"><table><thead><tr><th>窗口</th><th>区</th><th>号码</th><th>实际次数</th><th>随机期望</th><th>校正后p值</th></tr></thead><tbody id="frequencyRows"></tbody></table></div>
+</section>
+<section><h2>二、滚动样本外预测对照</h2>
+<p>固定方法：每次只能读取此前600期开奖；统计47个号码的出现次数，强收缩到均匀概率，并以限幅权重对下一期进行<strong>无放回抽样的完整5+2概率评价</strong>。连续检验最近400期，不得提前看到后面的号码。</p>
+<pre id="walkStatus">尚无结果</pre>
+<small>对数概率评分大于公平模型表示平均预测概率有改善，但仅是研究性证据。单次历史回测、近似统计区间和反复查看都不能代替未来事前锁定验证。若数据不足，页面将明确停止。</small>
+</section>
+<section><h2>三、一、二等奖的数学基准</h2>
+<div class="scroll"><table><thead><tr><th>覆盖</th><th>一等奖（5+2）</th><th>二等奖（5+1）</th></tr></thead><tbody id="odds"></tbody></table></div>
+<p>此表假设5注的<strong>前区5号码组合互不相同</strong>；在完全公平的摇奖中，覆盖不同号码不会令每注中奖概率更大，只影响不同注的相关性及组合覆盖方式。</p>
+</section>
+<section><h2>实验结论与下一步</h2><pre id="conclusion">需要真实历史数据计算后才能得出结论。若找不到可复制的偏差，则不能把统计频率包装为一等奖或二等奖预测优势。</pre>
+<p>要进一步验证机械偏差，应增加<strong>每期球组编号、摇奖机型号或更换日期、试机记录、视频与实验室球重测量数据</strong>，并记录这些信息在开奖前是否可知。没有实证支持，不假设有人操控开奖结果。</p></section>
+</main><script type="module">
+import{readResearchData,verifySnapshotFingerprints}from './real-data-check.mjs';
+import{valid}from './v31-core.mjs';
+import{biasFrequencyTests,walkForwardBiasTest,prizeOdds}from './v45-mechanical-bias.mjs';
+const $=id=>document.getElementById(id);
+function odds(){
+ const p=$('odds');p.replaceChildren();
+ for(const count of [1,5]){
+  const x=prizeOdds(count),row=document.createElement('tr');
+  for(const v of [count+'注互异前区','约1/'+Math.round(x.firstOdds).toLocaleString('zh-CN'),'约1/'+Math.round(x.secondOdds).toLocaleString('zh-CN')]){
+   const cell=document.createElement('td');cell.textContent=v;row.append(cell);
+  }p.append(row);
+ }
+}
+async function history(){
+ const db=await readResearchData(globalThis.indexedDB);
+ const validSnapshots=(db.snapshots||[]).filter(s=>Array.isArray(s.rows)&&s.rows.length>=1100);
+ if(validSnapshots.length){
+  validSnapshots.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  const chosen=validSnapshots[0];
+  if(!chosen.sourceHash)throw Error('历史快照缺少SHA-256来源指纹，拒绝作为受检历史');
+  const proof=await verifySnapshotFingerprints([chosen]);
+  if(proof.unsupported||proof.checked!==1||proof.matched!==1)throw Error('快照SHA-256来源校验失败或浏览器不支持校验');
+  return{rows:chosen.rows,where:'V3.1 IndexedDB历史快照（SHA-256复核通过）'};
+ }
+ const raw=localStorage.getItem('lottery_v2_dlt');
+ if(!raw)throw Error('未找到V3.1历史快照或原始缓存，请回V3.1检查；无需重新导入');
+ const rows=JSON.parse(raw);
+ return{rows,where:'本机原始缓存（未做SHA-256独立来源复核）'};
+}
+async function run(){
+ const btn=$('run');btn.disabled=true;
+ $('status').textContent='正在读取并验证历史快照……';
+ $('frequencyRows').replaceChildren();$('frequencyStatus').textContent='正在计算……';
+ $('walkStatus').textContent='正在计算……';$('historyInfo').textContent='';
+ try{
+  const h=await history(),rows=h.rows;
+  if(!Array.isArray(rows)||rows.some(x=>!valid(x)))throw Error('历史含无效期次，已停止分析');
+  $('historyInfo').textContent='数据来源：'+h.where+'\n读取 '+rows.length+' 期，尚未逐期与官方档案逐条人工校对。';
+  await new Promise(resolve=>setTimeout(resolve,30));
+  const freq=biasFrequencyTests(rows);
+  $('frequencyStatus').textContent='执行 '+freq.testsExecuted+'项检验；校正后显著异常 '+freq.significant.length+'项（统计显著不等于预测有效）。';
+  for(const x of freq.all.slice(0,12)){
+   const row=document.createElement('tr');
+   for(const value of [x.window,x.zone,String(x.number).padStart(2,'0'),x.count,x.expected.toFixed(1),x.adjustedP<0.000001?x.adjustedP.toExponential(2):x.adjustedP.toFixed(6)]){
+    const td=document.createElement('td');td.textContent=String(value);row.append(td);
+   }
+   $('frequencyRows').append(row);
+  }
+  const test=walkForwardBiasTest(rows);
+  $('walkStatus').textContent='检验期数：'+test.evaluatedDraws+'期（'+test.firstTestPeriod+'—'+test.lastTestPeriod+'）\n每次向前训练：'+test.trainWindow+'期\n相对公平随机模型平均对数评分差：'+test.meanLogAdvantage.toFixed(6)+' nats/期\n近似95%区间：['+test.interval95.map(x=>x.toFixed(6)).join('，')+']\n前半段：'+test.firstHalfMean.toFixed(6)+'；后半段：'+test.secondHalfMean.toFixed(6)+'\n'+test.interpretation;
+  $('conclusion').textContent=(test.preliminarySignal?'样本外得到初步值得关注的统计差异；必须继续在未来未发生的开奖中预注册验证。':'现有预设预测方法尚未通过稳健样本外检验，不能据此选择所谓更可能中一、二等奖的号码。')+
+   '\n\n全局及近期频率校正后显著异常：'+freq.significant.length+'项。\n'+freq.caveat+'\n\n'+test.caveat;
+  $('status').textContent='真实历史研究计算完成；仅生成只读研究报告，没有写入预测记录或修改历史库。';
+ }catch(e){$('status').textContent='检验未完成：'+(e?.message||String(e))+'；原始数据未修改。';$('conclusion').textContent='未能取得可信分析结果，不能推测下一期一等奖或二等奖。'}
+ finally{btn.disabled=false}
+}
+$('run').onclick=run;odds();
+</script></body></html>
