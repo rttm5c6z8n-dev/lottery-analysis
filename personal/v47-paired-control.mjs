@@ -176,3 +176,34 @@ export function exactFairFrontBenchmark(modelTickets,controlTickets){
   expectedDelta:(modelSum-controlSum)/total,
   notice:'本结果是所有公平独立开奖前区组合的精确结构基准，不使用真实开奖结果。原先已预注册的最佳前区命中主指标保持不变；此补充校准不能事后改写原始实验规则，也不能证明预测能力。'};
 }
+
+
+// Portable read-only self-consistency verification for an exported JSON file.
+// This does NOT establish trustworthy creation time or prove a matching
+// V4.0 local lock; verifyPairRecord is still required before recovery.
+export async function verifyExportedPairStandalone(record,subtle=globalThis.crypto?.subtle){
+ const p=record?.payload,proof=record?.proof;
+ if(!p||p.format!==PAIRED_VERSION||proof?.type!=='sha256-local-paired-v1'||
+  !/^[a-f0-9]{64}$/.test(proof.digest||''))throw Error('文件不是有效的V4.7凭证格式');
+ if(!/^\d{5}$/.test(String(p.period))||!/^[a-f0-9]{64}$/.test(p.modelDigest||'')||
+  p.controlAlgorithm!==CONTROL_ALGORITHM)throw Error('期号、算法或模型摘要格式不匹配');
+ const modelAt=Date.parse(p.modelCreatedAt),controlAt=Date.parse(p.createdAt),planned=Date.parse(p.plannedDrawAt);
+ if(![modelAt,controlAt,planned].every(Number.isFinite)||modelAt>controlAt||controlAt>=planned)
+  throw Error('凭证内时间先后顺序不合法');
+ if(!Array.isArray(p.modelTickets)||p.modelTickets.length!==5||
+  !Array.isArray(p.controlTickets)||p.controlTickets.length!==5)throw Error('凭证必须包含模型与随机各5注');
+ for(const t of [...p.modelTickets,...p.controlTickets]){
+  if(!t||!Array.isArray(t.front)||!Array.isArray(t.back))throw Error('存在不完整号码');
+  const valid=validateTicket(t.front.join(' '),t.back.join(' '));
+  if(JSON.stringify(valid)!==JSON.stringify(t))throw Error('凭证中的号码顺序或结构异常');
+ }
+ for(const group of [p.modelTickets,p.controlTickets]){
+  if(new Set(group.map(t=>t.front.join(','))).size!==5)throw Error('前区组合不满足5注互异要求');
+ }
+ const expected=await generateFairControl(p.controlSeed,subtle);
+ if(JSON.stringify(expected)!==JSON.stringify(p.controlTickets))throw Error('随机5注与种子重放结果不一致');
+ const digest=await hashObject(p,subtle);
+ if(digest!==proof.digest)throw Error('JSON凭证内容与SHA-256摘要不一致');
+ return{valid:true,period:p.period,digest,scope:'standalone-untrusted-time',
+  notice:'仅校验JSON内部一致性、号码合法性和随机种子可重现性，不能核实当时是否真在开奖前、模型是否已在其他设备锁定或第三方可信时间。'};
+}
