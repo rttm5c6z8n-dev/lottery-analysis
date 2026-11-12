@@ -17,7 +17,7 @@ function numbersBetween(text,start,next){
 function sorted(x){return[...x].sort((a,b)=>a-b)}
 export function parseMachineBulletin(html,requestedPeriod,source){
  const text=plain(html);
- const header=text.match(/第\s*(\d{5})\s*期开奖公告/);
+ const header=text.match(/第\s*(\d{5})\s*期开奖(?:结果)?公告/);
  if(!header||header[1]!==requestedPeriod)throw Error('官方公告期号与请求不一致');
  const set=text.match(/本期使用第\s*([123])\s*套摇奖球/);
  if(!set)throw Error('公告未披露正式球组编号');
