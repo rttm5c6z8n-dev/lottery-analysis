@@ -40,6 +40,7 @@ import{readResearchData,verifySnapshotFingerprints}from './real-data-check.mjs';
 import{valid}from './v31-core.mjs';
 import{biasFrequencyTests,walkForwardBiasTest,prizeOdds}from './v45-mechanical-bias.mjs';
 import{summarizeBallSetMetadata}from './v45-ballset-core.mjs';
+import{exitOrderByBallSet}from './v45-exit-order.mjs';
 const $=id=>document.getElementById(id);
 function odds(){
  const p=$('odds');p.replaceChildren();
@@ -102,8 +103,9 @@ function machineRows(){
  return rows;
 }
 function machineSummary(){
- const groups=summarizeBallSetMetadata(machineRows());
- $('machineSummary').textContent='已单独记录的球组样本：\n'+groups.map(x=>'第'+x.ballSet+'套：'+x.issues+'期'+(x.enoughForExploratoryFrequency?'（达到初步频率样本门槛，仍需样本外验证）':'（样本不足，不能检验球组偏差）')).join('\n');
+ const rows=machineRows(),groups=summarizeBallSetMetadata(rows),order=exitOrderByBallSet(rows);
+ $('machineSummary').textContent='已单独记录的球组样本：\n'+groups.map(x=>'第'+x.ballSet+'套：'+x.issues+'期'+(x.enoughForExploratoryFrequency?'（达到初步频率样本门槛，仍需样本外验证）':'（样本不足，不能检验球组偏差）')).join('\n')+
+ '\n\n条件化出球顺序研究（首球相对当期号码均值）：\n'+order.results.map(x=>'第'+x.ballSet+'套'+(x.zone==='front'?'前区':'后区')+'：'+x.issues+'期'+(x.eligibleForExploratoryTest?'，Z='+x.zScore.toFixed(3)+(x.crossesApproxBonferroniThreshold?'（探索异常，待样本外验证）':'（未发现超过校正阈值的偏差）'):'，不足100期，暂不检验')).join('\n')+'\n'+order.caveat;
 }
 async function machineFetch(){
  const btn=$('machineFetch'),out=$('machineStatus'),period=$('machinePeriod').value.trim();
@@ -122,7 +124,7 @@ async function machineFetch(){
   out.textContent='已取得第'+period+'期省级体彩官方公告：\n使用第'+body.ballSet+'套摇奖球\n前区出球顺序：'+body.drawOrder.front.map(pad).join(' ')+'\n后区出球顺序：'+body.drawOrder.back.map(pad).join(' ')+
     '\n排序后开奖号码：'+body.numbers.front.map(pad).join(' ')+' + '+body.numbers.back.map(pad).join(' ')+
     '\n源公告：'+body.source+'\n该信息是在本期开奖后公布的。';
-  machineSummary();
+  try{machineSummary()}catch(e){$('machineSummary').textContent='球组研究元数据无法读取：'+e.message+'；不影响历史频率和滚动检验。'}
  }catch(e){out.textContent='读取失败：'+(e?.message||String(e))+'。未修改原始历史或已有球组记录。'}
  finally{btn.disabled=false}
 }
