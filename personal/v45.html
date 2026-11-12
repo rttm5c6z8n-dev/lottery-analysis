@@ -12,7 +12,7 @@ section{background:#1e2b43;border:1px solid #425674;border-radius:16px;padding:1
 </section>
 <section><h2>读取自己的历史数据并运行检验</h2>
 <p>读取V3.1中保存的历史快照，先检查每期7个号码格式、重复期号和快照SHA-256。不会修改任何记录，也不会重新进行2142万种组合搜索。</p>
-<button id="run" type="button">运行94项频率检验＋滚动样本外验证</button>
+<button id="run" type="button">运行94项频率检验＋滚动样本外验证</button> <button id="copySummary" type="button" disabled>复制本次研究摘要</button>
 <p id="status" role="status">尚未运行；暂无真实历史检验结论。</p>
 <pre id="historyInfo"></pre>
 </section>
@@ -54,6 +54,7 @@ import{exitOrderByBallSet}from './v45-exit-order.mjs';
 import{buildPrizeHypotheses}from './v45-prize-target.mjs';
 import{serialOverlapAudit}from './v45-serial-overlap.mjs';
 const $=id=>document.getElementById(id);
+let reportText='';
 function odds(){
  const p=$('odds');p.replaceChildren();
  for(const count of [1,5]){
@@ -102,6 +103,7 @@ function showPrizeCandidates(hyp){
 }
 async function run(){
  const btn=$('run');btn.disabled=true;
+ reportText='';$('copySummary').disabled=true;
  $('status').textContent='正在读取并验证历史快照……';
  $('frequencyRows').replaceChildren();$('frequencyStatus').textContent='正在计算……';
  $('walkStatus').textContent='正在计算……';$('historyInfo').textContent='';
@@ -129,6 +131,26 @@ async function run(){
   $('walkStatus').textContent='检验期数：'+test.evaluatedDraws+'期（'+test.firstTestPeriod+'—'+test.lastTestPeriod+'）\n每次向前训练：'+test.trainWindow+'期\n相对公平随机模型平均对数评分差：'+test.meanLogAdvantage.toFixed(6)+' nats/期\n近似95%区间：['+test.interval95.map(x=>x.toFixed(6)).join('，')+']\n前半段：'+test.firstHalfMean.toFixed(6)+'；后半段：'+test.secondHalfMean.toFixed(6)+'\n'+test.interpretation;
   const hypotheses=buildPrizeHypotheses(rows,test);
   showPrizeCandidates(hypotheses);
+  reportText=[
+   'V4.5 大乐透物理偏差研究摘要',
+   '来源：'+h.where,
+   '期数：'+freq.length+'，截止：'+freq.throughPeriod,
+   '频率检验：'+freq.testsExecuted+'项；Bonferroni校正后显著：'+freq.significant.length+'项',
+   ...freq.significant.slice(0,10).map(x=>x.window+' '+x.zone+String(x.number).padStart(2,'0')+
+    '，实际'+x.count+'，期望'+x.expected.toFixed(1)+'，校正p='+x.adjustedP.toExponential(3)),
+   '相邻开奖：'+serial.pairs+'对；'+serial.zones.map(x=>x.zone+
+    '平均重复'+x.observedMean.toFixed(4)+'，期望'+x.expectedMean.toFixed(4)+'，Z='+x.zScore.toFixed(3)).join('；'),
+   '样本外：'+test.evaluatedDraws+'期，'+test.firstTestPeriod+'—'+test.lastTestPeriod,
+   '平均对数概率优势：'+test.meanLogAdvantage.toFixed(7),
+   '95%近似区间：'+test.interval95.map(x=>x.toFixed(7)).join(' 至 '),
+   '前半段：'+test.firstHalfMean.toFixed(7)+'，后半段：'+test.secondHalfMean.toFixed(7),
+   '证据门槛通过：'+(test.preliminarySignal?'初步通过，仍待未来验证':'否'),
+   '历史截止研究候选（非投注建议）：',
+   ...hypotheses.strategies.map(x=>x.objective+'\n'+x.picks.map(p=>
+    p.front.map(pad).join(' ')+' + '+p.back.map(pad).join(' ')).join('\n')),
+   '注意：当前模型没有经过可验证的多期事前预测实证。不能据此保证一等奖或二等奖。'
+  ].join('\n');
+  $('copySummary').disabled=false;
   $('conclusion').textContent=(test.preliminarySignal?'样本外得到初步值得关注的统计差异；必须继续在未来未发生的开奖中预注册验证。':'现有预设预测方法尚未通过稳健样本外检验，不能据此选择所谓更可能中一、二等奖的号码。')+
    '\n\n全局及近期频率校正后显著异常：'+freq.significant.length+'项。\n'+freq.caveat+'\n\n'+test.caveat;
   $('status').textContent='真实历史研究计算完成；仅生成只读研究报告，没有写入预测记录或修改历史库。';
@@ -171,5 +193,16 @@ async function machineFetch(){
 }
 $('machineFetch').onclick=machineFetch;
 try{machineSummary()}catch(e){$('machineSummary').textContent='球组研究缓存异常：'+e.message+'。不影响V4.5其他功能。'}
+$('copySummary').onclick=async()=>{
+ if(!reportText)return;
+ try{
+  if(!navigator.clipboard?.writeText)throw Error('当前浏览器不支持直接复制');
+  await navigator.clipboard.writeText(reportText);
+  $('status').textContent='本次研究摘要已复制，可以直接粘贴发送。所有原始数据保持不变。';
+ }catch(e){
+  $('status').textContent='一键复制不可用：'+e.message+'；已将摘要显示在下面，长按即可复制。';
+  $('historyInfo').textContent=reportText;
+ }
+};
 $('run').onclick=run;odds();
 </script></body></html>
