@@ -5,7 +5,10 @@ import {
   exactFairFrontBenchmark,
   generateFairControl,
   createPairRecord,
-  verifyExportedPairStandalone
+  verifyExportedPairStandalone,
+  evaluatePair,
+  formatPairedDrawReport,
+  summarizeCalibratedPairedRounds
 } from '../personal/v47-paired-control.mjs';
 
 const subtle=webcrypto.subtle;
@@ -103,4 +106,34 @@ test('tampered JSON and changed random seeds fail portable verification',async()
   const invalidTime=structuredClone(original);
   invalidTime.payload.createdAt='2026-01-03T00:00:00.000Z';
   await assert.rejects(verifyExportedPairStandalone(invalidTime,subtle));
+});
+
+test('draw report keeps the original primary metric and labels theory separately',async()=>{
+  const record=await syntheticPair();
+  const draw={front:[1,2,3,4,5],back:[1,2]};
+  const score=evaluatePair(record,draw);
+  const baseline=exactFairFrontBenchmark(record.payload.modelTickets,record.payload.controlTickets);
+  const report=formatPairedDrawReport(score,draw,baseline);
+  assert.ok(report.includes('第99999期'));
+  assert.ok(report.includes('模型5注'));
+  assert.ok(report.includes('随机5注'));
+  assert.ok(report.includes('理论'));
+  assert.ok(report.includes('最佳前区命中差'));
+  assert.ok(report.includes(String(score.bestFrontDelta)));
+  assert.equal(score.model.ticketScores.length,5);
+  assert.equal(score.control.ticketScores.length,5);
+});
+
+test('calibrated summary matches arithmetic and guards against repeated periods',()=>{
+  const baseline=exactFairFrontBenchmark(crowded,dispersed);
+  const sample=[{score:{period:'99997',bestFrontDelta:1},benchmark:baseline},
+                {score:{period:'99998',bestFrontDelta:-1},benchmark:baseline}];
+  const agg=summarizeCalibratedPairedRounds(sample);
+  assert.equal(agg.periods,2);
+  assert.equal(agg.observedMeanDelta,0);
+  assert.ok(Math.abs(agg.expectedMeanDelta-baseline.expectedDelta)<1e-12);
+  assert.ok(Math.abs(agg.meanExcess+baseline.expectedDelta)<1e-12);
+  assert.ok(Math.abs(agg.expectedModelWins-2*baseline.modelWinProbability)<1e-12);
+  assert.throws(()=>summarizeCalibratedPairedRounds([sample[0],sample[0]]));
+  assert.equal(summarizeCalibratedPairedRounds([]).periods,0);
 });
