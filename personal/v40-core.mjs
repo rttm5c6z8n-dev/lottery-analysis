@@ -38,7 +38,8 @@ export function bridgeRecord({result,period,now,drawAt,sourceUrl}){
 export function buildFiveRecords({results,resultId,period,now,drawAt,sourceUrl}){
  const selected=results.find(x=>x.id===resultId);
  if(!selected||!Array.isArray(selected.picks)||selected.picks.length!==5)throw Error('必须有完整的5组研究号码');
- const batch=Array.from({length:5},(_,rank)=>bridgeRecord({result:chooseResult(results,resultId,rank),period,now,drawAt,sourceUrl}));
+ const batchId='v40-five|'+resultId+'|'+period+'|'+now;
+ const batch=Array.from({length:5},(_,rank)=>({...bridgeRecord({result:chooseResult(results,resultId,rank),period,now,drawAt,sourceUrl}),batch:{id:batchId,size:5,rank:rank+1}}));
  const combinations=new Set(batch.map(r=>r.ticket.front.join(',')+'|'+r.ticket.back.join(',')));
  if(combinations.size!==5)throw Error('5组号码中有重复组合，已停止留档');
  return batch;
@@ -49,6 +50,8 @@ export function appendFiveRecords(current,batch){
  const period=batch[0]?.period,sourceId=batch[0]?.source?.resultId;
  const ranks=new Set(batch.map(x=>x.source?.rank));
  if(!period||!sourceId||ranks.size!==5||[1,2,3,4,5].some(n=>!ranks.has(n))||batch.some(x=>x.period!==period||x.source?.resultId!==sourceId||x.verification))throw Error('批次期号、来源或组号不一致');
+ const groupId=batch[0]?.batch?.id;
+ if(!groupId||batch.some(x=>x.batch?.id!==groupId||x.batch?.size!==5||x.batch?.rank!==x.source?.rank||x.createdAt!==batch[0].createdAt||x.targetEvidence?.plannedDrawAt!==batch[0].targetEvidence?.plannedDrawAt))throw Error('5组预测的批次标记、保存时间或开奖计划不一致');
  if(current.some(x=>x?.period===period))throw Error('该期已有预测留档，禁止覆盖或追加到现有批次；请使用另一经确认的未来期号');
  return [...current,...batch];
 }
