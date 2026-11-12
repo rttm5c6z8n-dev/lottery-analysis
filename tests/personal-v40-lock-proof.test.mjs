@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import{webcrypto}from 'node:crypto';
+import{stampLockedRecords,inspectLockProof,exportLockEvidence,digestLockedRecords}from '../personal/v40-lock-proof.mjs';
+const src={period:'26130',ticket:{front:[2,7,25,26,31],back:[5,9]},method:'V3.1 第1组',createdAt:'2026-11-12T02:00:00Z',
+ source:{type:'v31-result',resultId:'archive1',rank:1,generatedAt:'2026-11-11T14:32:54+08:00',throughPeriod:'26128'},
+ targetEvidence:{plannedDrawAt:'2026-11-14T20:30:00+08:00',sourceUrl:'https://www.sport.gov.cn/notice'},liveGate:{latestPublished:'26129'}};
+const records=Array.from({length:5},(_,i)=>({...src,ticket:{front:[i+1,i+6,i+11,i+16,i+21],back:[5,9]},batch:{id:'batch-1',size:5,rank:i+1},source:{...src.source,rank:i+1}}));
+const subtle=webcrypto.subtle;
+const stamped=await stampLockedRecords(records,subtle);
+assert.equal(stamped.records.length,5);
+assert.match(stamped.proof.digest,/^[a-f0-9]{64}$/);
+assert.equal((await inspectLockProof(stamped.records,subtle)).valid,true);
+assert.equal((await inspectLockProof(stamped.records.slice().reverse(),subtle)).valid,true,'five-rank ordering must not affect digest');
+const evidence=exportLockEvidence(stamped.records);
+assert.equal(evidence.proof.digest,stamped.proof.digest);
+assert.equal(evidence.canonical.records.length,5);
+assert.equal((await inspectLockProof(stamped.records.map(r=>({...r,verification:{draw:{front:[2,12,14,17,33],back:[7,8]}})),subtle)).valid,true,'verification added after draw must not change pre-draw commitment');
+const altered=stamped.records.map((r,i)=>i===2?{...r,ticket:{...r.ticket,back:[7,9]}}:r);
+assert.equal((await inspectLockProof(altered,subtle)).valid,false,'ticket changes must be detected');
+const changedTime=stamped.records.map((r,i)=>i===0?{...r,createdAt:'2026-11-12T03:00:00Z'}:r);
+assert.equal((await inspectLockProof(changedTime,subtle)).valid,false,'timestamp changes must be detected');
+const missing=stamped.records.slice(0,4);
+assert.equal((await inspectLockProof(missing,subtle)).valid,false,'partial batch must be rejected');
+assert.equal((await inspectLockProof([{...src}],subtle)).status,'legacy');
+assert.throws(()=>exportLockEvidence(records),/未找到/);
+const single=await stampLockedRecords([src],subtle);
+assert.equal((await inspectLockProof(single.records,subtle)).valid,true);
+assert.notEqual(await digestLockedRecords(records,subtle),await digestLockedRecords([src],subtle));
+console.log('SHA-256 prediction lock: deterministic, verification-proof, mutation detection and export PASS');
