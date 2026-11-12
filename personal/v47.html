@@ -1,0 +1,192 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V4.7 事前5注配对实验</title>
+<style>body{margin:0;background:#101827;color:#edf3ff;font:15px/1.7 system-ui}main{max-width:880px;margin:auto;padding:20px}section{margin:17px 0;padding:19px;border:1px solid #415674;background:#1d2b43;border-radius:15px}button,select{font:inherit;border-radius:8px;padding:11px}button{background:#90baff;border:0;color:#10203a;margin:6px 4px 6px 0}button:disabled{opacity:.5}select{max-width:100%;background:#122038;color:white;border:1px solid #637b99}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#a1c9ff}small{color:#b6c8dc}h1{font-size:27px;line-height:1.4}h2{font-size:20px}textarea{display:block;box-sizing:border-box;background:#102039;color:#f0f4ff;font:13px/1.6 ui-monospace,monospace;padding:12px;border:1px solid #607695;border-radius:9px;width:100%}</style></head><body><main>
+<nav><a href="./v46.html">← V4.6 概率测试</a> · <a href="./v40.html">V4.0 正式锁定</a> · <a href="./v43.html">V4.3 连续观察</a></nav>
+<h1>V4.7 · 事前随机对照实验</h1>
+<p>目的：检验模型5注是否真的优于<strong>开奖前固定的随机5注</strong>。同一期同一期开奖结果比较，不把5注当作5期开奖。只有在V4.0完成未来一期5注锁定、且本次官网查询确认尚未开奖时，才能生成随机对照。</p>
+<section><h2>1. 已锁定的模型期号</h2>
+<button id="refresh" type="button">读取V4.0本机正式留档（只读）</button>
+<p id="loadStatus" role="status">尚未读取。V3.1历史研究号码不能代替事前锁定。</p>
+<label>选择正式留档期号 <select id="period"></select></label>
+<pre id="modelPreview"></pre>
+<p><small>若这里显示0期，说明还没有合格的未来期号5注锁定记录，需先到V4.0完成，不需要重新训练或导入历史。</small></p></section>
+<section><h2>2. 只生成一次随机对照</h2>
+<p>随机种子由手机安全随机源产生，按固定SHA-256计数器算法得到5注不同的前区组合。一次性登记后不得重抽；新结果只存入V4.7专属空间，绝不覆盖V4.0模型记录。</p>
+<button id="create" type="button" disabled>开奖前登记随机对照5注</button>
+<p id="createStatus" role="status">未登记。</p><pre id="controlPreview"></pre>
+<p><small>登记时重新请求官网已公布的最新期开奖数据。只接受下一期候选、计划开奖时刻尚未到达且同站两页一致的情况。手机本机SHA-256不是可信第三方时间公证。</small></p>
+</section>
+<section><h2>3. 同期开奖后对照</h2>
+<button id="compare" type="button" disabled>查询官网并比较所有已登记期号</button>
+<p id="compareStatus" role="status">未查询。</p><pre id="comparisons"></pre>
+<p><small>主指标是每期5注中的最佳前区命中数；另记录一、二等奖实际命中与最佳前区对应的后区表现。只是观察指标，不能承诺提高中奖概率。</small></p></section>
+<section><h2>4. 导出研究原始凭证</h2>
+<button id="export" type="button" disabled>导出当前期配对凭证JSON</button><button id="copy" type="button" disabled>复制本次实验摘要</button>
+<textarea id="summary" rows="12" readonly placeholder="登记随机对照或比较后，会在这里显示完整摘要，长按可复制。"></textarea>
+<p><small>本机与服务器可能被修改。只有可信的外部时间证明才能更强地证明这些号码在开奖前固定；不要把本地记录当成第三方公证。</small></p></section>
+</main><script type="module">
+import{verifyLockedModel,createPairRecord,verifyPairRecord,evaluatePair,summarizePairedRounds}from './v47-paired-control.mjs';
+import{verifyLiveLockGate}from './v40-live-lock-gate.mjs';
+import{validateTicket}from './v38-core.mjs';
+const JOURNAL_KEY='lottery_v38_predictions',PAIR_KEY='lottery_v47_paired_controls';
+const $=id=>document.getElementById(id),pad=n=>String(n).padStart(2,'0');
+let validGroups=new Map(),outcomeText='';
+function journal(){
+ const raw=localStorage.getItem(JOURNAL_KEY);
+ if(raw===null)return[];
+ let data;try{data=JSON.parse(raw)}catch{throw Error('原始预测留档无法解析，禁止继续')}
+ if(!Array.isArray(data))throw Error('原始预测留档结构异常');
+ return data;
+}
+function pairs(){
+ const raw=localStorage.getItem(PAIR_KEY);if(!raw)return{};
+ let data;try{data=JSON.parse(raw)}catch{throw Error('随机配对凭证存储无法解析，禁止覆盖')}
+ if(!data||typeof data!=='object'||Array.isArray(data))throw Error('随机配对凭证结构异常，禁止覆盖');
+ return data;
+}
+function modelGroups(){
+ const groups=new Map();
+ for(const row of journal()){
+  const period=String(row?.period||'');
+  if(!/^\d{5}$/.test(period))continue;
+  if(!groups.has(period))groups.set(period,[]);
+  groups.get(period).push(row);
+ }
+ return groups;
+}
+function selected(){return $('period').value}
+function pickText(tickets){
+ return tickets.map((ticket,i)=>'第'+(i+1)+'注 '+ticket.front.map(pad).join(' ')+' + '+ticket.back.map(pad).join(' ')).join('\n');
+}
+function updateView(){
+ const v=validGroups.get(selected()),saved=pairs()[selected()];
+ $('modelPreview').textContent=v?'第'+v.period+'期，模型SHA-256：'+v.modelDigest+'\n计划开奖：'+v.plannedDrawAt+'\n\n'+pickText(v.tickets):'没有符合条件的完整5注留档。';
+ $('create').disabled=!v||!!saved;
+ $('compare').disabled=!Object.keys(pairs()).length;
+ $('controlPreview').textContent=saved?'已经登记的随机对照（只读，必须校验后才能计分）：\n'+pickText(saved.payload.controlTickets):'该期尚未登记随机对照。';
+ $('export').disabled=!saved;
+ $('copy').disabled=!outcomeText;
+}
+async function refresh(){
+ $('refresh').disabled=true;$('loadStatus').textContent='正在检查V4.0完整5注和本机SHA-256……';
+ try{
+  validGroups=new Map();
+  const groups=modelGroups(),problems=[];
+  for(const [period,group]of groups){
+   try{validGroups.set(period,await verifyLockedModel(group));}
+   catch(e){problems.push(period+'期：'+e.message);}
+  }
+  const old=selected();$('period').replaceChildren();
+  for(const [period]of [...validGroups].sort((a,b)=>b[0].localeCompare(a[0]))){
+   const opt=document.createElement('option');opt.value=period;opt.textContent='第'+period+'期';$('period').append(opt);
+  }
+  if(validGroups.has(old))$('period').value=old;
+  $('loadStatus').textContent='本机完整5注指纹验证通过：'+validGroups.size+'期。'+(problems.length?'\n排除：'+problems.slice(0,5).join('；'):'')+
+   '\n本机核验≠第三方时间公证。';
+  updateView();
+ }catch(e){$('loadStatus').textContent='读取失败：'+e.message+'；历史数据未修改。'}
+ finally{$('refresh').disabled=false}
+}
+async function requestOfficial(){
+ const res=await fetch('/api/dlt-results',{cache:'no-store',headers:{Accept:'application/json'}});
+ const body=await res.json();
+ if(!res.ok)throw Error(body.error||'官网接口暂不可用');
+ return body;
+}
+async function create(){
+ const period=selected(),btn=$('create'),out=$('createStatus');
+ btn.disabled=true;out.textContent='正在重新核对官方最新期开奖并生成固定对照……';
+ try{
+  const locked=validGroups.get(period);
+  if(!locked)throw Error('需要先读取已完整锁定的未来期5注');
+  if(Object.hasOwn(pairs(),period))throw Error('该期已存在配对凭证，不允许重抽');
+  const official=await requestOfficial(),now=new Date().toISOString();
+  const gate=verifyLiveLockGate({payload:official,period,drawAt:locked.plannedDrawAt,now});
+  if(!globalThis.crypto?.getRandomValues)throw Error('当前设备没有安全随机源，不能登记随机对照');
+  const seedBytes=new Uint8Array(32);globalThis.crypto.getRandomValues(seedBytes);
+  const seed=[...seedBytes].map(n=>n.toString(16).padStart(2,'0')).join('');
+  const record=await createPairRecord({locked,seed,createdAt:new Date().toISOString(),officialGate:gate});
+  // Re-read the original records, gate and journal after async work. Never overwrite any old pair.
+  const again=await verifyLockedModel(modelGroups().get(period));
+  if(again.modelDigest!==locked.modelDigest)throw Error('模型原始5注在查询期间变化，拒绝登记');
+  verifyLiveLockGate({payload:official,period,drawAt:locked.plannedDrawAt,now:new Date().toISOString()});
+  if(selected()!==period)throw Error('用户切换了期号，请重新登记');
+  const index=pairs();
+  if(Object.hasOwn(index,period))throw Error('该期已有随机对照，禁止覆盖');
+  await verifyPairRecord(record,again);
+  index[period]=record;
+  localStorage.setItem(PAIR_KEY,JSON.stringify(index));
+  out.textContent='已登记第'+period+'期随机5注，摘要：'+record.proof.digest+'。只存本机，不是第三方时间公证。以后不能再随机重抽。';
+  outcomeText='V4.7 第'+period+'期\n模型锁定摘要：'+locked.modelDigest+'\n随机对照摘要：'+record.proof.digest+
+   '\n模型5注：\n'+pickText(record.payload.modelTickets)+'\n随机5注：\n'+pickText(record.payload.controlTickets)+
+   '\n计划开奖：'+locked.plannedDrawAt+'\n注意：本地记录无独立时间证明。';
+  $('summary').value=outcomeText;
+  updateView();
+ }catch(e){out.textContent='没有登记：'+(e?.message||String(e))+'；原有预测不变。'}
+ finally{btn.disabled=!validGroups.has(selected())||Object.hasOwn(pairs(),selected())}
+}
+async function compare(){
+ const btn=$('compare');btn.disabled=true;
+ $('compareStatus').textContent='读取官网开奖、校验每期配对指纹……';
+ try{
+  const official=await requestOfficial(),all=pairs(),groups=modelGroups(),lines=[],evaluated=[];
+  const map=new Map();
+  for(const r of official.records||[]){
+   try{
+    const t=validateTicket(r.front.join(' '),r.back.join(' '));
+    if(t.front.join(',')!==r.front.join(',')||t.back.join(',')!==r.back.join(','))continue;
+    map.set(r.period,t);
+   }catch{}
+  }
+  for(const [period,record]of Object.entries(all).sort(([a],[b])=>a.localeCompare(b))){
+   try{
+    const locked=await verifyLockedModel(groups.get(period));
+    await verifyPairRecord(record,locked);
+    const draw=map.get(period);
+    if(!draw){
+     const label=Number(period)<=Number(official.latestPeriod)?'该期已过，但官网历史列表未覆盖':'尚未取得该期开奖数据';
+     lines.push('第'+period+'期：'+label+'；凭证已校验，不计成绩。');continue;
+    }
+    const score=evaluatePair(record,draw);
+    evaluated.push(score);
+    lines.push('第'+period+'期：模型最佳前区'+score.model.bestFront+'，随机最佳前区'+score.control.bestFront+
+     '，差值'+(score.bestFrontDelta>=0?'+':'')+score.bestFrontDelta+
+     '；一等奖（模型/随机）：'+(score.model.firstPrize?'是':'否')+'/'+(score.control.firstPrize?'是':'否')+
+     '；二等奖（模型/随机）：'+(score.model.secondPrize?'是':'否')+'/'+(score.control.secondPrize?'是':'否')+
+     '。'+(period===official.latestPeriod&&official.crossPageAgreement?'同站两页面一致':'官网历史列表单一来源'));
+   }catch(e){lines.push('第'+period+'期：记录检验失败，整期排除：'+e.message)}
+  }
+  const summary=summarizePairedRounds(evaluated);
+  $('comparisons').textContent=lines.join('\n')+'\n\n有效比较：'+summary.periods+'期；模型胜'+summary.modelWins+
+   '、随机胜'+summary.controlWins+'、打平'+summary.ties+
+   '；最佳前区命中差均值：'+(summary.meanBestFrontDifference===null?'无':summary.meanBestFrontDifference.toFixed(4))+
+   '\n'+summary.notice;
+  $('compareStatus').textContent='只读对照完成；未修改任何正式留档或观察数据。';
+  outcomeText=$('comparisons').textContent+'\n本地随机对照没有独立可信时间戳；不能单独作为事前预测优势证据。';
+  $('summary').value=outcomeText;
+  updateView();
+ }catch(e){$('compareStatus').textContent='官网对照失败：'+(e?.message||String(e))}
+ finally{btn.disabled=false}
+}
+async function exportEvidence(){
+ const out=$('createStatus'),period=selected();
+ try{
+  const record=pairs()[period];
+  if(!record)throw Error('该期没有配对凭证');
+  const locked=await verifyLockedModel(modelGroups().get(period));
+  await verifyPairRecord(record,locked);
+  const blob=new Blob([JSON.stringify(record,null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');link.href=url;link.download='dlt-paired-control-'+period+'.json';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  out.textContent='已请求导出第'+period+'期配对凭证。请在开奖前保存到独立位置，记录本机摘要。';
+ }catch(e){out.textContent='导出未完成：'+e.message}
+}
+async function copy(){
+ const txt=$('summary').value;if(!txt)return;
+ try{await navigator.clipboard.writeText(txt);$('compareStatus').textContent='研究摘要已复制。'}
+ catch(e){$('summary').focus();$('summary').select();$('compareStatus').textContent='自动复制不可用，已选中下方文字，长按即可复制。'}
+}
+$('refresh').onclick=refresh;$('period').onchange=updateView;$('create').onclick=create;$('compare').onclick=compare;
+$('export').onclick=exportEvidence;$('copy').onclick=copy;
+refresh();
+</script></body></html>
