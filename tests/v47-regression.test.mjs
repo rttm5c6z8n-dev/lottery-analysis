@@ -29,6 +29,10 @@ test('exact baseline enumerates C(35,5), with fixed known synthetic counts',()=>
   assert.equal(x.controlWins,167313);
   assert.equal(x.ties,113356);
   assert.equal(x.modelWins+x.controlWins+x.ties,x.total);
+  assert.equal(x.firstPrizeOutcomeCount,21425712);
+  assert.equal(x.firstPrizeAnyModelProbability,5/21425712);
+  assert.equal(x.firstPrizeAnyControlProbability,5/21425712);
+  assert.equal(x.firstPrizeAnyModelProbability,x.firstPrizeAnyControlProbability);
   assert.ok(x.expectedDelta<0);
 });
 
