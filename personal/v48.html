@@ -1,0 +1,144 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>V4.8 长期配对实验工作台</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101827;color:#edf3ff;font:15px/1.65 system-ui,-apple-system,sans-serif}
+main{max-width:880px;margin:auto;padding:16px}h1{font-size:25px;line-height:1.4}h2{font-size:19px}h3{font-size:16px}
+section{background:#1d2b43;border:1px solid #415674;border-radius:15px;margin:16px 0;padding:17px}
+p,small{line-height:1.7}small,.muted{color:#bbc8da}a{color:#9dc6ff;overflow-wrap:anywhere}
+button{font:inherit;font-weight:650;padding:13px;border-radius:9px;background:#90baff;color:#12233b;border:0;max-width:100%;cursor:pointer}
+button:disabled{opacity:.5}button:focus-visible,a:focus-visible{outline:3px solid #f2c765;outline-offset:2px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.7 ui-monospace,SFMono-Regular,monospace}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:180px}
+.stat{background:#142239;border:1px solid #364961;border-radius:10px;padding:11px}
+.stat strong{display:block;font-size:23px}.record{border-top:1px solid #4a5b72;padding:13px 0}
+.record:first-child{border-top:none}.record strong{font-size:16px}
+.tag{display:inline-block;margin-left:7px;border:1px solid #596a84;border-radius:7px;padding:1px 6px;font-size:12px}
+.navline{line-height:2}#rounds:empty:before{content:'尚无可以显示的本机期号'}
+@media(max-width:550px){button{width:100%}.row>*{min-width:100%}main{padding:12px}}
+</style></head><body><main>
+<nav class="navline"><a href="./">← V3.1研究</a> · <a href="./v40.html">V4.0正式锁定</a> · <a href="./v47.html">V4.7随机对照</a></nav>
+<h1>V4.8 · 长期配对实验工作台</h1>
+<p class="muted">版本 V4.8.0 · 2026-11-13。打开页面时自动读取本机已锁定记录、随机对照和最新公开开奖结果。这里是<strong>只读工作台</strong>，不会生成号码、重抽随机组、改写或补记历史。</p>
+<section><h2>1. 一键进度总览</h2>
+<button id="refresh" type="button">重新核验全部留档与开奖结果</button>
+<p id="status" role="status">正在初始化……</p>
+<div class="row" aria-label="累计状态">
+<div class="stat">已登记期数<strong id="total">—</strong></div>
+<div class="stat">已评分期数<strong id="scored">—</strong></div>
+<div class="stat">等待开奖 / 官网<strong id="pending">—</strong></div>
+</div><pre id="official">官网数据尚未读取。</pre>
+<small>最新一期的同站两页面一致，不代表独立机构认证；往期开奖结果可能只有历史列表一个来源。本机时间及SHA-256也不是第三方公证。</small></section>
+<section><h2>2. 按期自动核对</h2><div id="rounds" role="region" aria-label="按期核验结果"></div>
+<small>必须先验V4.0完整5注指纹，再验V4.7固定随机组指纹和种子，官网找到该期完整开奖号码后才计分。缺资料时不猜测、不回填。</small></section>
+<section><h2>3. 长期模型 vs 随机实验成绩</h2>
+<pre id="aggregate">尚无已开奖的合格期次。</pre>
+<button id="exportReport" type="button" disabled>导出当前长期实验报告 TXT</button>
+<small>只比较每期开奖一次的预注册主指标——5注中的最佳前区命中数；额外列出与号码分布相适应的公平开奖结构基准。单期或少量胜出不能证明预测能力。</small></section>
+<section><h2>4. 下一期准备（不会自动锁定）</h2>
+<pre id="next">正在检查最新开奖计划……</pre>
+<p>每次新一期都需要按顺序完成：研究与审核5注 → 核实官方目标期号及开奖计划 → V4.0一次性锁定5注 → V4.7开奖前只登记一次随机5注。</p>
+<div class="row"><a href="./">① V3.1研究存档</a><a href="./v40.html">② V4.0正式锁定</a><a href="./v47.html">③ V4.7固定对照</a></div>
+<small>不会将当前已锁定的26130期直接复制为未来期的新模型，也不会在开奖后补登随机对照。下一期只有在新的、符合条件的研究记录形成后才能进入正式锁定。</small></section>
+</main><script type="module">
+import{parseV48LocalState,indexOfficialDraws,roundStatus,statusLabel,summarizeV48Statuses,V48_LOCK_KEY,V48_PAIR_KEY}from './v48-core.mjs';
+import{verifyLockedModel,verifyPairRecord,evaluatePair,exactFairFrontBenchmark,formatPairedDrawReport,summarizeCalibratedPairedRounds}from './v47-paired-control.mjs';
+import{proposeUpcomingDraw}from './v40-next-draw.mjs';
+const $=id=>document.getElementById(id);
+let report='',running=false;
+function setText(id,value){$(id).textContent=String(value)}
+function recordElement(period,code,detail){
+ const box=document.createElement('div');box.className='record';
+ const heading=document.createElement('strong');heading.textContent='第'+period+'期';
+ const label=document.createElement('span');label.className='tag';label.textContent=statusLabel(code);
+ const content=document.createElement('pre');content.textContent=detail;
+ box.append(heading,label,content);return box;
+}
+function formatSigned(n){return(n>=0?'+':'')+n.toFixed(4)}
+async function scan(){
+ if(running)return;running=true;$('refresh').disabled=true;$('exportReport').disabled=true;report='';
+ setText('status','正在读取本机原始记录并查询官网……');
+ let state;
+ try{state=parseV48LocalState(localStorage.getItem(V48_LOCK_KEY),localStorage.getItem(V48_PAIR_KEY))}
+ catch(e){setText('status','本机记录读取失败：'+e.message+'。不要清理浏览器数据，也不要重新抽号。');
+  running=false;$('refresh').disabled=false;return}
+ let official=null;
+ try{
+  const response=await fetch('/api/dlt-results?all=1',{cache:'no-store',headers:{Accept:'application/json'}});
+  const body=await response.json();
+  if(!response.ok||body.error)throw Error(body.error||'HTTP '+response.status);
+  const index=indexOfficialDraws(body);official={payload:body,...index};
+  setText('official','官网历史最新期号：'+index.latest+'\n查询时间：'+(index.checkedAt||'未提供')+
+   '\n最新期号同站两页面一致：'+(index.sameSiteLatestConfirmed?'是':'否/无法确认')+
+   '\n当前接口取得的有效开奖期数：'+index.map.size+
+   (index.conflicts.size?'\n存在互相矛盾的同期期号，已排除：'+[...index.conflicts].join('、'):''));
+  try{
+   const next=proposeUpcomingDraw(body,new Date().toISOString());
+   setText('next','下一期仅供人工核实的候选：'+next.candidatePeriod+
+    '\n下一常规开奖日候选：'+next.candidateDate+'（北京时间）\n'+next.notice);
+  }catch(e){setText('next','暂无经过新鲜度和双页面一致性检查的下一期候选：'+e.message+'\n可从V4.0查询官方公告，勿用猜测期号锁定。')}
+ }catch(e){
+  setText('official','官网查询未完成：'+(e?.message||String(e))+'。仅核查本机档案，不计新成绩。');
+  setText('next','等待官网接口恢复，无法核实下期候选。');
+ }
+ const records=[],evaluated=[],reports=[],entries=[];
+ const periods=[...new Set([...state.groups.keys(),...Object.keys(state.pairs).filter(x=>/^\d{5}$/.test(x))])]
+  .sort((a,b)=>Number(b)-Number(a));
+ $('rounds').replaceChildren();
+ for(const period of periods){
+  const group=state.groups.get(period),pair=Object.hasOwn(state.pairs,period)?state.pairs[period]:null;
+  let proofValid=false,score=null,base=null,issue='';
+  let locked=null;
+  if(group){try{locked=await verifyLockedModel(group)}catch(e){issue='模型留档指纹核验失败：'+e.message}}
+  if(locked&&pair){try{await verifyPairRecord(pair,locked);proofValid=true}
+    catch(e){issue='配对凭证核验失败：'+e.message}}
+  const draw=official?.map.get(period);
+  const code=locked===null&&group?'invalid-proof':roundStatus({period,hasLock:!!group,hasPair:!!pair,proofValid,draw,latest:official?.latest});
+  const status=(!official&&proofValid)?'official-unavailable':code;
+  let detail=issue||'模型与随机对照信息来自本机保存记录。';
+  if(status==='scored'){
+   try{
+    score=evaluatePair(pair,draw);
+    base=exactFairFrontBenchmark(pair.payload.modelTickets,pair.payload.controlTickets);
+    evaluated.push(score);entries.push({score,benchmark:base});
+    const sourceType=period===official.latest&&official.sameSiteLatestConfirmed?'该官网两页面当期一致':'官网历史页单一来源';
+    const one=formatPairedDrawReport(score,draw,base)+'\n来源说明：'+sourceType;
+    detail=one;reports.push(one);
+   }catch(e){issue='评分/理论基准失败：'+e.message;detail=issue}
+  }else if(proofValid){detail='模型SHA-256：'+locked.modelDigest.slice(0,20)+'…\n随机SHA-256：'+pair.proof.digest.slice(0,20)+'…\n计划开奖：'+locked.plannedDrawAt+
+   (status==='awaiting-draw'?'\n尚未发布该期完整官方开奖结果；不可现在算成绩。':'\n'+statusLabel(status));}
+  else if(status==='locked-only'){detail='V4.0已存模型，但V4.7未发现事前随机对照。开奖后不能补登记。';}
+  const actualStatus=score?'scored':status==='scored'?'invalid-proof':status;
+  records.push({period,status:actualStatus});
+  $('rounds').append(recordElement(period,actualStatus,detail));
+  await new Promise(resolve=>setTimeout(resolve,0));
+ }
+ const counted=summarizeV48Statuses(records);
+ setText('total',counted.total);setText('scored',counted.scored);setText('pending',counted.pending);
+ const attention=counted.needsAttention?'；'+counted.needsAttention+'期需要人工检查':'';
+ setText('status','只读核验完成：'+counted.total+'期记录，'+counted.scored+'期可计分'+attention+'。未修改任何模型、随机号码或历史数据。');
+ if(evaluated.length){
+  const summary=summarizeCalibratedPairedRounds(entries);
+  const wins=evaluated.filter(x=>x.bestFrontDelta>0).length;
+  const losses=evaluated.filter(x=>x.bestFrontDelta<0).length;
+  setText('aggregate','已核验开奖 '+evaluated.length+' 期\n模型胜 '+wins+'，随机胜 '+losses+'，打平 '+(evaluated.length-wins-losses)+
+    '\n真实最佳前区差均值：'+formatSigned(summary.observedMeanDelta)+
+    '\n公平开奖结构预期差均值：'+formatSigned(summary.expectedMeanDelta)+
+    '\n真实与理论均值的差：'+formatSigned(summary.meanExcess)+
+    '\n\n'+summary.notice);
+  report='V4.8 长期模型与随机对照实验\n报告生成时间：'+new Date().toISOString()+
+   '\n官网记录来源：'+(official?.source||'未取得')+'\n\n'+$('status').textContent+
+   '\n\n'+$('aggregate').textContent+'\n\n'+reports.join('\n\n──────────\n\n')+
+   '\n\n仅用于数学研究；本机记录不是第三方事前时间证明，开奖结果请自行复核。';
+  $('exportReport').disabled=false;
+ }else{setText('aggregate','目前尚无已经取得官网开奖结果、且模型和随机凭证均核验通过的期号。不能提前计分。')}
+ running=false;$('refresh').disabled=false;
+}
+$('refresh').onclick=()=>scan().catch(e=>{running=false;$('refresh').disabled=false;setText('status','核验异常：'+e.message+'；未修改原始记录。')});
+$('exportReport').onclick=()=>{
+ if(!report)return;
+ const blob=new Blob([report],{type:'text/plain;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='dlt-v48-longitudinal-report.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
+};
+scan().catch(e=>{running=false;$('refresh').disabled=false;setText('status','核验异常：'+e.message+'；请勿删除本机留档。')});
+</script></body></html>
