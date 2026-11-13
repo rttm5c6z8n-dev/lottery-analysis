@@ -3,6 +3,13 @@
 <nav><a href="./v46.html">← V4.6 概率测试</a> · <a href="./v40.html">V4.0 正式锁定</a> · <a href="./v43.html">V4.3 连续观察</a></nav>
 <h1>V4.7 · 事前随机对照实验</h1>
 <p>目的：检验模型5注是否真的优于<strong>开奖前固定的随机5注</strong>。同一期同一期开奖结果比较，不把5注当作5期开奖。只有在V4.0完成未来一期5注锁定、且本次官网查询确认尚未开奖时，才能生成随机对照。</p><p><small>这是数学研究中的虚拟号码比较，<strong>不需要购买两组彩票</strong>；任何比较都不能保证中奖。</small></p>
+<section><h2>0. 版本与一键自检</h2>
+<p>功能版本：<strong id="buildVersion">V4.7.2 · 2026-11-13 · 读档/开奖报告/自检</strong></p>
+<p>如果手机刷新后看不到这一栏，说明页面尚未更新到该版本。自检仅<strong>读取</strong>本机锁定和随机记录，检查指纹、配对及官方接口，不生成或修改任何彩票号码。</p>
+<button id="selfCheck" type="button">一键自检：页面、已锁定记录与官网接口</button>
+<pre id="selfCheckStatus" role="status">尚未运行。</pre>
+<small>自检的“官网接口可用”只表示取得相应网站公开信息，不是开奖结果独立交叉认证，也不能证明本机锁定时间。不要清理此站点的浏览器数据。</small>
+</section>
 <section><h2>1. 已锁定的模型期号</h2>
 <button id="refresh" type="button">读取V4.0本机正式留档（只读）</button>
 <p id="loadStatus" role="status">尚未读取。V3.1历史研究号码不能代替事前锁定。</p>
@@ -216,6 +223,37 @@ function downloadDetailedReport(){
  const a=document.createElement('a');a.href=url;a.download='dlt-paired-draw-report.txt';a.click();
  setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
+async function selfCheck(){
+ const out=$('selfCheckStatus'),btn=$('selfCheck');
+ btn.disabled=true;out.textContent='只读检查中：不会生成号码、重抽或覆盖留档……';
+ const lines=['当前页面：V4.7.2（2026-11-13）'];
+ try{
+  const groups=modelGroups(),index=pairs(),periods=Object.keys(index);
+  lines.push('V4.0本机留档候选期数：'+groups.size+'；V4.7已登记对照期数：'+periods.length);
+  const problems=[],verified=[];
+  for(const period of periods){
+   try{
+    const locked=await verifyLockedModel(groups.get(period));
+    const result=await verifyPairRecord(index[period],locked);
+    verified.push(period+'（'+result.digest.slice(0,12)+'…）');
+   }catch(e){problems.push(period+'：'+(e?.message||String(e)))}
+  }
+  lines.push('V4.0与V4.7相互匹配且指纹通过：'+verified.length+'期'+(verified.length?' ['+verified.join('，')+']':''));
+  if(!periods.length)lines.push('提醒：本机未找到已登记对照。若换过设备，可使用第五栏读取先前导出的JSON；不要重抽。');
+  if(problems.length)lines.push('待检查/缺少来源：'+problems.join('；'));
+  else if(periods.length)lines.push('本机来源核验：全部通过（不等于独立时间公证）。');
+ }catch(e){lines.push('本机数据读取失败：'+(e?.message||String(e))+'；未修改任何数据。')}
+ out.textContent=lines.join('\n')+'\n正在检查官方开奖结果接口……';
+ try{
+  const official=await requestOfficial();
+  lines.push('官网查询接口：已返回，最新记录 '+(official.latestPeriod||'未知')+'期');
+  lines.push('查询时间：'+(official.checkedAt||'未提供'));
+  lines.push('同站两页一致：'+(official.crossPageAgreement===true?'是':'否/无法确认'));
+  lines.push('提醒：网页接口、网络连接或缓存可能影响响应，开奖结果请以正式官方公告复核。');
+ }catch(e){lines.push('官网接口未通过：'+(e?.message||String(e))+'；并不代表本机留档丢失。')}
+ out.textContent=lines.join('\n');
+ btn.disabled=false;
+}
 async function calculateBaseline(){
  const btn=$('baseline'),out=$('baselineStatus'),period=selected();
  btn.disabled=true;out.textContent='正在校验固定凭证并枚举全部324632种公平前区结果……';
@@ -305,6 +343,7 @@ async function compareBackupFile(){
 $('backupFile').onchange=()=>{importedBackup=null;$('compareBackup').disabled=true;$('backupStatus').textContent='已选择文件，请点击核验备份JSON的完整性。'};
 $('verifyBackup').onclick=verifyBackupFile;
 $('compareBackup').onclick=compareBackupFile;
+$('selfCheck').onclick=selfCheck;
 $('refresh').onclick=refresh;$('period').onchange=updateView;$('create').onclick=create;$('compare').onclick=compare;
 $('export').onclick=exportEvidence;$('baseline').onclick=calculateBaseline;$('exportReport').onclick=downloadDetailedReport;$('copy').onclick=copy;
 refresh();
