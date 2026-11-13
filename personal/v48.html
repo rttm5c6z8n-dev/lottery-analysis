@@ -18,7 +18,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.7 ui-monospace,SFMon
 </style></head><body><main>
 <nav class="navline"><a href="./">← V3.1研究</a> · <a href="./v40.html">V4.0正式锁定</a> · <a href="./v47.html">V4.7随机对照</a></nav>
 <h1>V4.8 · 长期配对实验工作台</h1>
-<p class="muted">版本 V4.8.0 · 2026-11-13。打开页面时自动读取本机已锁定记录、随机对照和最新公开开奖结果。这里是<strong>只读工作台</strong>，不会生成号码、重抽随机组、改写或补记历史。</p>
+<p class="muted">版本 V4.8.1 · 2026-11-13。打开页面时自动读取本机已锁定记录、随机对照和最新公开开奖结果。这里是<strong>只读工作台</strong>，不会生成号码、重抽随机组、改写或补记历史。</p>
 <section><h2>1. 一键进度总览</h2>
 <button id="refresh" type="button">重新核验全部留档与开奖结果</button>
 <p id="status" role="status">正在初始化……</p>
@@ -40,7 +40,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.7 ui-monospace,SFMon
 <div class="row"><a href="./">① V3.1研究存档</a><a href="./v40.html">② V4.0正式锁定</a><a href="./v47.html">③ V4.7固定对照</a></div>
 <small>不会将当前已锁定的26130期直接复制为未来期的新模型，也不会在开奖后补登随机对照。下一期只有在新的、符合条件的研究记录形成后才能进入正式锁定。</small></section>
 </main><script type="module">
-import{parseV48LocalState,indexOfficialDraws,roundStatus,statusLabel,summarizeV48Statuses,V48_LOCK_KEY,V48_PAIR_KEY}from './v48-core.mjs';
+import{parseV48LocalState,indexOfficialDraws,roundStatus,statusLabel,summarizeV48Statuses,nextStepForCandidate,V48_LOCK_KEY,V48_PAIR_KEY}from './v48-core.mjs';
 import{verifyLockedModel,verifyPairRecord,evaluatePair,exactFairFrontBenchmark,formatPairedDrawReport,summarizeCalibratedPairedRounds}from './v47-paired-control.mjs';
 import{proposeUpcomingDraw}from './v40-next-draw.mjs';
 const $=id=>document.getElementById(id);
@@ -61,7 +61,7 @@ async function scan(){
  try{state=parseV48LocalState(localStorage.getItem(V48_LOCK_KEY),localStorage.getItem(V48_PAIR_KEY))}
  catch(e){setText('status','本机记录读取失败：'+e.message+'。不要清理浏览器数据，也不要重新抽号。');
   running=false;$('refresh').disabled=false;return}
- let official=null;
+ let official=null,nextCandidate=null;
  try{
   const response=await fetch('/api/dlt-results?all=1',{cache:'no-store',headers:{Accept:'application/json'}});
   const body=await response.json();
@@ -73,8 +73,8 @@ async function scan(){
    (index.conflicts.size?'\n存在互相矛盾的同期期号，已排除：'+[...index.conflicts].join('、'):''));
   try{
    const next=proposeUpcomingDraw(body,new Date().toISOString());
-   setText('next','下一期仅供人工核实的候选：'+next.candidatePeriod+
-    '\n下一常规开奖日候选：'+next.candidateDate+'（北京时间）\n'+next.notice);
+   nextCandidate=next;
+   setText('next','正在对照本机期号与最新候选……');
   }catch(e){setText('next','暂无经过新鲜度和双页面一致性检查的下一期候选：'+e.message+'\n可从V4.0查询官方公告，勿用猜测期号锁定。')}
  }catch(e){
   setText('official','官网查询未完成：'+(e?.message||String(e))+'。仅核查本机档案，不计新成绩。');
@@ -111,6 +111,10 @@ async function scan(){
   records.push({period,status:actualStatus});
   $('rounds').append(recordElement(period,actualStatus,detail));
   await new Promise(resolve=>setTimeout(resolve,0));
+ }
+ if(nextCandidate){
+  const guided=nextStepForCandidate(nextCandidate.candidatePeriod,nextCandidate.candidateDate,records);
+  setText('next',guided.message+'\n\n'+nextCandidate.notice);
  }
  const counted=summarizeV48Statuses(records);
  setText('total',counted.total);setText('scored',counted.scored);setText('pending',counted.pending);
