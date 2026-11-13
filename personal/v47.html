@@ -271,7 +271,10 @@ async function calculateBaseline(){
    '双方打平：'+pct(b.tieProbability)+'（'+b.ties+' 种）\n\n'+
    '模型最佳前区命中期望：'+b.expectedModelBest.toFixed(4)+'\n'+
    '随机最佳前区命中期望：'+b.expectedControlBest.toFixed(4)+'\n'+
-   '模型减随机的理论期望差：'+b.expectedDelta.toFixed(4)+'\n\n'+b.notice;
+   '模型减随机的理论期望差：'+b.expectedDelta.toFixed(4)+'\n\n'+
+   '【一等奖单期概率（公平独立开奖假设）】\n模型5注：'+(b.firstPrizeAnyModelProbability*100).toFixed(8)+'%\n'+
+   '随机5注：'+(b.firstPrizeAnyControlProbability*100).toFixed(8)+'%\n'+
+   '注：5张不同完整彩票的理论一等奖概率相同，均为5/21425712；前区最佳命中的结构差异不代表一等奖机会不同。\n\n'+b.notice;
  }catch(e){out.textContent='公平基准计算失败：'+(e?.message||String(e))}
  finally{btn.disabled=!validGroups.has(selected())||!Object.hasOwn(pairs(),selected())}
 }
