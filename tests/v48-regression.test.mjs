@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseV48LocalState,indexOfficialDraws,roundStatus,statusLabel,
-  summarizeV48Statuses,V48_LOCK_KEY,V48_PAIR_KEY
+  summarizeV48Statuses,nextStepForCandidate,V48_LOCK_KEY,V48_PAIR_KEY
 } from '../personal/v48-core.mjs';
 
 test('V4.8 reads original V4.0 and V4.7 keys without rewriting them',()=>{
@@ -59,4 +59,16 @@ test('V4.8 summarized counts distinguish pending, graded and issues',()=>{
   {status:'scored'},{status:'awaiting-draw'},{status:'official-unavailable'},
   {status:'invalid-proof'},{status:'locked-only'}]);
  assert.deepEqual(results,{total:5,scored:1,pending:2,needsAttention:2});
+});
+
+test('next-step guidance recognizes an already locked paired future round',()=>{
+ const info=nextStepForCandidate('26130','2026-11-14',[{period:'26130',status:'awaiting-draw'}]);
+ assert.equal(info.stage,'ready-awaiting');
+ assert.match(info.message,/不要重复锁定/);
+ const newIssue=nextStepForCandidate('26131','2026-11-16',[{period:'26130',status:'scored'}]);
+ assert.equal(newIssue.stage,'unlocked');
+ const invalid=nextStepForCandidate('26130','2026-11-14',[{period:'26130',status:'invalid-proof'}]);
+ assert.equal(invalid.stage,'review-required');
+ const unpaired=nextStepForCandidate('26130','2026-11-14',[{period:'26130',status:'locked-only'}]);
+ assert.equal(unpaired.stage,'model-only');
 });
