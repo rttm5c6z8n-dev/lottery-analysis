@@ -1,25 +1,29 @@
-name: V4.7 paired experiment regression
+name: V4.7 + V4.8 paired experiment regression
 
 on:
   push:
     paths:
       - 'personal/v47*'
+      - 'personal/v48*'
       - 'personal/v38-core.mjs'
       - 'personal/dlt-results-core.mjs'
       - 'functions/api/dlt-results.js'
       - 'personal/v40-lock-proof.mjs'
       - 'personal/five-batch-audit.mjs'
       - 'tests/v47-regression.test.mjs'
+      - 'tests/v48-regression.test.mjs'
       - '.github/workflows/v47-regression.yml'
   pull_request:
     paths:
       - 'personal/v47*'
+      - 'personal/v48*'
       - 'personal/v38-core.mjs'
       - 'personal/dlt-results-core.mjs'
       - 'functions/api/dlt-results.js'
       - 'personal/v40-lock-proof.mjs'
       - 'personal/five-batch-audit.mjs'
       - 'tests/v47-regression.test.mjs'
+      - 'tests/v48-regression.test.mjs'
       - '.github/workflows/v47-regression.yml'
 
 permissions:
@@ -35,4 +39,4 @@ jobs:
         with:
           node-version: '22'
       - name: Validate paired-experiment calculations and JSON proof
-        run: node --test tests/v47-regression.test.mjs
+        run: node --test tests/v47-regression.test.mjs tests/v48-regression.test.mjs
