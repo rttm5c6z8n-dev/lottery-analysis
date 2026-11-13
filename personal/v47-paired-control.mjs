@@ -157,6 +157,16 @@ export function exactFairFrontBenchmark(modelTickets,controlTickets){
   !Array.isArray(controlTickets)||controlTickets.length!==5)throw Error('公平基准需模型与随机各5注');
  const model=modelTickets.map(t=>maskForFairFront(t.front));
  const control=controlTickets.map(t=>maskForFairFront(t.front));
+ // Full-prize probabilities count distinct full 5+2 tickets, not best-front spread.
+ function fullTicketCount(tickets){
+  return new Set(tickets.map(t=>{
+   if(!Array.isArray(t?.front)||!Array.isArray(t?.back))throw Error('票面数据不完整');
+   const v=validateTicket(t.front.join(' '),t.back.join(' '));
+   return v.front.join(',')+'|'+v.back.join(',');
+  })).size;
+ }
+ const modelDistinct=fullTicketCount(modelTickets),controlDistinct=fullTicketCount(controlTickets);
+ const jackpotOutcomes=324632*66; // C(35,5) * C(12,2) = 21,425,712.
  const bits=Array.from({length:36},(_,n)=>n===0?{lo:0,hi:0}:n<=32?{lo:1<<(n-1),hi:0}:{lo:0,hi:1<<(n-33)});
  let total=0,modelWins=0,controlWins=0,ties=0,modelSum=0,controlSum=0;
  for(let a=1;a<=31;a++)for(let b=a+1;b<=32;b++)for(let c=b+1;c<=33;c++)
@@ -174,6 +184,9 @@ export function exactFairFrontBenchmark(modelTickets,controlTickets){
   modelWinProbability:modelWins/total,controlWinProbability:controlWins/total,tieProbability:ties/total,
   expectedModelBest:modelSum/total,expectedControlBest:controlSum/total,
   expectedDelta:(modelSum-controlSum)/total,
+  firstPrizeAnyModelProbability:modelDistinct/jackpotOutcomes,
+  firstPrizeAnyControlProbability:controlDistinct/jackpotOutcomes,
+  firstPrizeOutcomeCount:jackpotOutcomes,
   notice:'本结果是所有公平独立开奖前区组合的精确结构基准，不使用真实开奖结果。原先已预注册的最佳前区命中主指标保持不变；此补充校准不能事后改写原始实验规则，也不能证明预测能力。'};
 }
 
