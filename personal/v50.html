@@ -1,0 +1,19 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V5.0 双轨实验设计与预注册</title><style>*{box-sizing:border-box}body{margin:0;background:#101827;color:#edf3ff;font:15px/1.7 system-ui}main{max-width:820px;margin:auto;padding:16px}section{background:#1d2b43;border:1px solid #415674;border-radius:14px;padding:17px;margin:16px 0}h1{font-size:25px}h2{font-size:19px}button{font:inherit;padding:12px;border:0;border-radius:9px;background:#90baff;color:#10203a;font-weight:650}a{color:#a1c9ff}pre{white-space:pre-wrap;overflow-wrap:anywhere}small{color:#bdcce0}textarea{width:100%;min-height:140px;background:#101827;color:white;border:1px solid #627794;border-radius:8px;padding:12px;font:13px/1.5 monospace}</style></head><body><main><nav><a href="./v48.html">← V4.8</a> · <a href="./v49.html">V4.9结构分析</a> · <a href="./v40.html">V4.0正式锁定</a></nav><h1>V5.0 · 双轨研究预注册草案</h1><p>版本 V5.0.0。这里是<strong>只读研究方案与候选方案检查页</strong>，不是正式预测锁定工具。不会修改V4.0、V4.7、V4.8历史记录，也不把26130期事后纳入双轨成绩。</p><section><h2>1. 固定比较规则</h2><pre>轨道A：原始模型5注，保持原算法输出，不做事后筛选。
+轨道B：覆盖优化5注；只能使用开奖前已有的模型候选池及其评分，按事先固定的规则选出，不得利用目标期开奖号码。
+轨道C：开奖前固定的公平随机5注，作为对照。
+主要指标：每期5注中的最佳前区命中数。
+次要指标：对应后区命中数、一二等奖实际命中、号码覆盖率。
+结构校准：精确枚举324632种前区开奖组合。
+分析单位：每期开奖算1次，不把5注当5次独立实验。
+任何缺失的事前锁定或随机种子不得开奖后补记。</pre><small>公平开奖下，五张不同完整彩票的一等奖概率不因分散或集中选号而提高。结构优化主要影响“最佳前区命中数”这一研究指标。</small></section><section><h2>2. B轨算法草案（尚未启用）</h2><pre>输入：开奖前生成的候选池，每条含5个前区、2个后区及原模型评分。
+候选池必须在锁定前保存摘要；不能只拿A轨5注重新拼装后称为独立模型。
+排序：先按原模型评分从高到低，再以号码字典序处理同分。
+逐注选择：对每个候选计算「原始评分 - λ×与已选前区的重复数量」，取最高者；不允许重复完整号码。
+λ须在未来期实验开始前确定并固定，不能依据26130期结果调参。
+如果候选池、评分、λ或官方未来期信息不完整，则不允许B轨正式登记。</pre><p><strong>当前状态：尚未锁定任何V5.0未来期号码。</strong></p></section><section><h2>3. 研究前检查清单</h2><pre id="checks">① 已定义主指标：通过
+② 已定义A/B/C轨：通过
+③ 已取得完整候选池与模型评分：待提供
+④ 已预先固定λ：待确定
+⑤ 已实现独立的V5.0 SHA-256锁定和随机凭证校验：待开发
+⑥ 已核实未来期官方期号与开奖时间：待核验
+⑦ 已完成锁定前自动化测试：待完成</pre><button id="export">导出V5.0预注册草案 TXT</button><p><small>本页只导出研究规则，不生成或锁定号码，不把草案当成已注册的正式实验。</small></p></section></main><script>document.getElementById('export').onclick=()=>{const s=[...document.querySelectorAll('section')].map(x=>x.innerText).join('\n\n');const blob=new Blob(['V5.0 双轨研究预注册草案\n生成日期：'+new Date().toISOString()+'\n\n'+s],{type:'text/plain;charset=utf-8'});const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='v50-preregistration-draft.txt';a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)};</script></body></html>
