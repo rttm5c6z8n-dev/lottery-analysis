@@ -1,0 +1,28 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V5.0 搜索自检</title><style>body{background:#101827;color:#eef4ff;font:16px/1.7 system-ui;max-width:760px;margin:auto;padding:18px}section{background:#1d2b43;border-radius:14px;padding:18px}button{padding:12px 18px;border:0;border-radius:9px;background:#95baff;color:#11213b;font:inherit}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#9bc7ff}</style></head><body><a href="./v50.html">← V5.0研究草案</a><h1>V5.0 · 搜索引擎自检</h1><section><p>使用合成评分参数验证算法，不读取或改写任何真实历史记录。测试结果仅证明代码逻辑，不证明预测能力。</p><button id="go">运行本地与云端自检</button><pre id="out">尚未运行。</pre></section><script type="module">
+import{VERSION}from './v31-core.mjs';
+import{V50_SEARCH_VERSION,candidateBatch,selectCoverage}from './v50-search-core.mjs';
+import{verifyBatch,selectWithFixedLambda}from './v50-checks.mjs';
+const out=document.getElementById('out'),btn=document.getElementById('go');
+const log=s=>out.textContent+='\n'+s;
+const coeff=n=>Array.from({length:n},(_,i)=>[0.2+(i%7)*0.04,0.2,0.25,0.3,0.5]);
+btn.onclick=async()=>{btn.disabled=true;out.textContent='开始测试……';try{
+const config={version:VERSION,sourceHash:'a'.repeat(64),weights:[.2,.2,.2,.2,.2],prepared:{coefficients:[coeff(35),coeff(12)]}};
+const first=candidateBatch(config,0,[],256);
+verifyBatch({input:{config,startFront:0},output:{...first,version:VERSION,searchVersion:V50_SEARCH_VERSION}});
+log('通过：本地首批16896个完整组合，Top100有效');
+const second=candidateBatch(config,256,first.candidates,256);
+verifyBatch({input:{config,startFront:256},output:{...second,version:VERSION,searchVersion:V50_SEARCH_VERSION}});
+log('通过：第二批断点接续，累计33792个组合');
+let rejected=false;try{candidateBatch(config,256,[...first.candidates.slice(0,99),first.candidates[0]],256)}catch{rejected=true}if(!rejected)throw Error('重复候选未被拒绝');
+log('通过：损坏的重复候选断点被拒绝');
+const chosen=selectWithFixedLambda(second.candidates,1);
+if(chosen.length!==5)throw Error('B轨数量异常');
+log('通过：固定惩罚参数可选出5注，未写入正式留档');
+const response=await fetch('/api/v50-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({searchVersion:V50_SEARCH_VERSION,config,startFront:0,candidates:[]}),cache:'no-store'});
+const json=await response.json();if(!response.ok)throw Error('云端HTTP '+response.status+'：'+(json.error||'未知错误'));
+verifyBatch({input:{config,startFront:0},output:json});
+if(JSON.stringify(json.candidates.map(x=>[x.nums,x.score]))!==JSON.stringify(first.candidates.map(x=>[x.nums,x.score])))throw Error('云端与本地Top100不一致');
+log('通过：Cloudflare接口与本地首批Top100一致');
+log('\n全部自检通过。注意：未完成21425712组合全量搜索，未正式锁定未来期号。');
+}catch(e){log('失败：'+e.message)}finally{btn.disabled=false}};
+</script></body></html>
