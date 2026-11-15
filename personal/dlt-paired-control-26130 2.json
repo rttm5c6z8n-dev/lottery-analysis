@@ -1,0 +1,162 @@
+{
+  "payload": {
+    "format": "V4.7-paired-control-v1",
+    "period": "26130",
+    "createdAt": "2026-11-12T13:39:51.915Z",
+    "modelCreatedAt": "2026-11-12T13:38:11.650Z",
+    "plannedDrawAt": "2026-11-14T21:25:00+08:00",
+    "modelDigest": "c57fe87391b6405842c25e6590048bbc281093c735a624bb8afb5b7604eb3f96",
+    "modelTickets": [
+      {
+        "front": [
+          2,
+          7,
+          25,
+          26,
+          31
+        ],
+        "back": [
+          5,
+          9
+        ]
+      },
+      {
+        "front": [
+          2,
+          6,
+          25,
+          26,
+          31
+        ],
+        "back": [
+          5,
+          9
+        ]
+      },
+      {
+        "front": [
+          2,
+          7,
+          25,
+          26,
+          33
+        ],
+        "back": [
+          5,
+          9
+        ]
+      },
+      {
+        "front": [
+          2,
+          7,
+          25,
+          26,
+          32
+        ],
+        "back": [
+          5,
+          9
+        ]
+      },
+      {
+        "front": [
+          7,
+          10,
+          20,
+          25,
+          26
+        ],
+        "back": [
+          5,
+          9
+        ]
+      }
+    ],
+    "controlAlgorithm": "sha256-counter-unbiased-fisher-yates-v1",
+    "controlSeed": "4cfee0d5ca7b07dbb0c880e3bb8058c2fc730465d853b349001fa1fe3b6574a2",
+    "controlTickets": [
+      {
+        "front": [
+          6,
+          10,
+          13,
+          16,
+          30
+        ],
+        "back": [
+          2,
+          9
+        ]
+      },
+      {
+        "front": [
+          5,
+          12,
+          13,
+          15,
+          31
+        ],
+        "back": [
+          6,
+          7
+        ]
+      },
+      {
+        "front": [
+          16,
+          21,
+          28,
+          29,
+          31
+        ],
+        "back": [
+          2,
+          3
+        ]
+      },
+      {
+        "front": [
+          2,
+          4,
+          8,
+          10,
+          24
+        ],
+        "back": [
+          1,
+          5
+        ]
+      },
+      {
+        "front": [
+          1,
+          8,
+          10,
+          14,
+          24
+        ],
+        "back": [
+          8,
+          9
+        ]
+      }
+    ],
+    "gate": {
+      "latestPublished": "26129",
+      "checkedAt": "2026-11-12T13:39:51.782Z",
+      "officialSource": "https://www.gstc.org.cn/wanfa/dlt_history"
+    },
+    "primaryMetric": "best-front-hits-per-draw",
+    "secondaryMetrics": [
+      "first-prize-any",
+      "second-prize-any",
+      "best-front-tied-back"
+    ],
+    "disclaimer": "仅本地承诺完整性，未取得第三方时间戳。随机对照不能在看过开奖结果后创建或重抽。"
+  },
+  "proof": {
+    "type": "sha256-local-paired-v1",
+    "digest": "86ab9c0f6d76ff8512e5473aa25bd1d372a042e8843f864bcef886b0929f1cf3"
+  }
+}
